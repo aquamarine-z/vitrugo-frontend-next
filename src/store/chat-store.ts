@@ -1,5 +1,7 @@
-import {atom} from "jotai";
+
 import {z} from "zod"
+import {atomWithStorage} from "jotai/utils";
+
 
 
 export const ChatMessageSchema = z.object({
@@ -9,7 +11,7 @@ export const ChatMessageSchema = z.object({
     type:z.enum(["user","assistant","system"]),
 })
 export type ChatMessage = z.infer<typeof ChatMessageSchema>
-export const ChatStore = atom({
+export const ChatStore = atomWithStorage("chat-store",{
     messages: [] as ChatMessage[],
     subtitle:"",
     subtitleVisible:false,

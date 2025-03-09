@@ -19,7 +19,7 @@ export function Draggable({children, defaultX = 100, defaultY = 100}: {
                         })
                     }
 
-                }} className={"absolute active:cursor-pointer w-fit h-fit"}
+                }} className={"absolute active:cursor-pointer w-[500px] h-[700px]"}
                 style={{top: position.y, left: position.x}}>
         {children}
     </div>

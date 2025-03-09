@@ -30,7 +30,7 @@ export function Live2dViewer(props: Live2dViewerProps) {
     useEffect(() => {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         //@ts-expect-error
-        if(!window.PIXI) window.PIXI = PIXI; // 让 pixi-live2d-display 能自动更新 Live2D 模型
+        if (!window.PIXI) window.PIXI = PIXI; // 让 pixi-live2d-display 能自动更新 Live2D 模型
     }, []);
     const playAudioWithSync = async (arrayBuffer: ArrayBuffer) => {
         try {
@@ -70,6 +70,7 @@ export function Live2dViewer(props: Live2dViewerProps) {
         }
     };
     useEffect(() => {
+        //console.log(playAudioWithSync)
         setLiveStore(prev => {
             return {...prev, audioPlayer: playAudioWithSync}
         })

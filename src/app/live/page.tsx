@@ -32,7 +32,7 @@ export default function LivePage() {
                         <ResizablePanel defaultSize={80}>
                             <div className={"relative w-full h-full"}>
                                 <div className={"absolute left-0 top-0 right-0 bottom-0 bg-black"}/>
-                                <div className={"absolute bg-transparent w-full h-full left-0 top-0 bottom-0 right-0"}>
+                                <div className={"relative bg-transparent w-full h-full left-0 top-0 bottom-0 right-0 overflow-hidden"}>
                                     <Draggable>
                                         <Live2dViewer/>
                                     </Draggable>
