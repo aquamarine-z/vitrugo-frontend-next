@@ -69,7 +69,7 @@ export function ChatBoxInput() {
         }
     };
     useEffect(() => {
-        if(!liveStore.audioPlayer) return 
+        //if(!liveStore.audioPlayer) return 
         let reconnectAttempts = 0;
         const maxReconnectAttempts = 5;
 
@@ -179,6 +179,7 @@ export function ChatBoxInput() {
         connectWebSocket();
 
         return () => {
+            if(!liveStore.audioPlayer)return
             if (wsRef.current) {
                 wsRef.current.close();
             }
@@ -189,7 +190,7 @@ export function ChatBoxInput() {
                 clearTimeout(reconnectTimeoutRef.current);
             }
         };
-    }, [playAudio,liveStore]);
+    }, [liveStore.audioPlayer]);
     const handleSend = () => {
         if (!inputMessage.trim()) return;
 
