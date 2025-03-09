@@ -22,3 +22,9 @@ pnpm build
 ```Bash
 pnpm start
 ```
+# 涉及的技术栈
+- 状态管理:Jotai
+- UI库:Shadcn UI
+- 框架:Next.js
+- 样式:Tailwindcss
+- 模式验证:Zod

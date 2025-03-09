@@ -1,7 +1,7 @@
 'use client'
 import {useAtom} from "jotai";
 import {useEffect, useRef} from "react";
-import {LiveStore} from "@/app/store/live-store";
+import {LiveStore} from "@/store/live-store";
 import * as PIXI from "pixi.js";
 import {Live2DModel} from "pixi-live2d-display/cubism4";
 import {MotionSync} from "live2d-motionsync/stream";

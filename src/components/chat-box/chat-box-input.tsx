@@ -3,9 +3,10 @@ import {PhoneIcon, SendHorizonalIcon} from "lucide-react";
 import {Textarea} from "@/components/ui/textarea";
 import {useEffect, useRef, useState} from "react";
 import {useAtom} from "jotai";
-import {ChatMessage, ChatStore} from "@/app/store/chat-store";
-import {LiveStore} from "@/app/store/live-store";
+import {ChatMessage, ChatStore} from "@/store/chat-store";
+import {LiveStore} from "@/store/live-store";
 import {toast} from "sonner";
+import {LanguageStore} from "@/store/language-store";
 
 export function ChatBoxInput() {
     const [inputMessage, setInputMessage] = useState("")
@@ -19,6 +20,7 @@ export function ChatBoxInput() {
     const reconnectTimeoutRef = useRef<number>(null)
     const mediaRecorderRef = useRef(null)
     const [isRecording, setIsRecording] = useState(false)
+    const language = useAtom(LanguageStore)[0].languagePack
     useEffect(() => {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         //@ts-expect-error
@@ -275,11 +277,13 @@ export function ChatBoxInput() {
     };
     return <div className={"w-full h-full flex flex-col gap-2"}>
         <div className={"w-full flex flex-row px-2 items-center justify-end gap-2"}>
-            <Button onClick={handleToggleRecording} className={isRecording ? "bg-red-300 hover:bg-red-200" : "bg-green-300 hover:bg-green-200" + " transition"} disabled={!isConnected}><PhoneIcon/></Button>
-            <div className={"grow"}></div>
+            <Button onClick={handleToggleRecording}
+                    className={isRecording ? "bg-red-300 hover:bg-red-200" : "bg-green-300 hover:bg-green-200" + " transition"}
+                    disabled={!isConnected}><PhoneIcon/></Button>
+            <div className={"grow"}/>
             <Button disabled={!isConnected} onClick={() => {
                 handleSend()
-            }}><SendHorizonalIcon/>Send</Button>
+            }}><SendHorizonalIcon/>{language['chat-input.message-send-button.title']}</Button>
         </div>
         <Textarea value={inputMessage} onChange={e => {
             setInputMessage(e.target.value)

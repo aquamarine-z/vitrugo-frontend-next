@@ -1,6 +1,6 @@
 'use client'
 import {useAtom} from "jotai";
-import {ChatMessage, ChatStore} from "@/app/store/chat-store";
+import {ChatMessage, ChatStore} from "@/store/chat-store";
 import {ChatBoxInput} from "@/components/chat-box/chat-box-input";
 
 export function ChatBox() {

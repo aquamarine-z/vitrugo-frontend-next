@@ -1,5 +1,5 @@
 import {useAtom} from "jotai";
-import {ChatStore} from "@/app/store/chat-store";
+import {ChatStore} from "@/store/chat-store";
 
 export function Subtitle(){
     const [chatStore]=useAtom(ChatStore)
