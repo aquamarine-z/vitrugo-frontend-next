@@ -5,6 +5,7 @@ import {LiveStore} from "@/store/live-store";
 import * as PIXI from "pixi.js";
 import {Live2DModel} from "pixi-live2d-display/cubism4";
 import {MotionSync} from "live2d-motionsync/stream";
+
 interface Live2dViewerProps {
     onLoad?: () => void
 }
@@ -15,7 +16,6 @@ export function Live2dViewer(props: Live2dViewerProps) {
     const motionSyncRef = useRef<MotionSync>(null);  // 添加 motionSync 的 ref
     const audioSourceRef = useRef<AudioBufferSourceNode>(null);
     const [liveStore, setLiveStore] = useAtom(LiveStore)
-
     useEffect(() => {
         if (liveStore.interrupted) {
             if (motionSyncRef.current) {
@@ -27,6 +27,11 @@ export function Live2dViewer(props: Live2dViewerProps) {
             }
         }
     }, [liveStore.interrupted]);
+    useEffect(() => {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        //@ts-expect-error
+        if(!window.PIXI) window.PIXI = PIXI; // 让 pixi-live2d-display 能自动更新 Live2D 模型
+    }, []);
     const playAudioWithSync = async (arrayBuffer: ArrayBuffer) => {
         try {
             if (!motionSyncRef.current) {
