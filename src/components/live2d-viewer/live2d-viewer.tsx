@@ -1,23 +1,28 @@
 'use client'
-import {useAtom} from "jotai";
-import {useEffect, useRef} from "react";
-import {LiveStore} from "@/store/live-store";
+import {SetStateAction, useEffect, useRef} from "react";
 import * as PIXI from "pixi.js";
 import {Live2DModel} from "pixi-live2d-display/cubism4";
 import {MotionSync} from "live2d-motionsync/stream";
 
 interface Live2dViewerProps {
     onLoad?: () => void
+    api: Live2dViewerApi,
+}
+type AudioPlayerCallback = (buffer: ArrayBuffer) => Promise<void>;
+
+export class Live2dViewerApi {
+    playAudio?: AudioPlayerCallback;
+    interrupted?: boolean;
+    setApi?: (action:SetStateAction<Live2dViewerApi>)=>void
 }
 
-export function Live2dViewer(props: Live2dViewerProps) {
+export function Live2dViewer({api,...props}: Live2dViewerProps) {
     const canvasRef = useRef(null);
     const appRef = useRef<PIXI.Application>(null); // 用于存储 PIXI 应用实例
     const motionSyncRef = useRef<MotionSync>(null);  // 添加 motionSync 的 ref
     const audioSourceRef = useRef<AudioBufferSourceNode>(null);
-    const [liveStore, setLiveStore] = useAtom(LiveStore)
     useEffect(() => {
-        if (liveStore.interrupted) {
+        if (api.interrupted) {
             if (motionSyncRef.current) {
                 motionSyncRef.current.reset();
             }
@@ -26,7 +31,7 @@ export function Live2dViewer(props: Live2dViewerProps) {
                 audioSourceRef.current = null; // 清空 source
             }
         }
-    }, [liveStore.interrupted]);
+    }, [api.interrupted]);
     useEffect(() => {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         //@ts-expect-error
@@ -50,9 +55,11 @@ export function Live2dViewer(props: Live2dViewerProps) {
             const destination = audioContext.createMediaStreamDestination();
             source.connect(destination);
             source.connect(audioContext.destination);
-
-            setLiveStore(prev => {
-                return {...prev, interrupted: false}
+            api.setApi?.((prev) => {
+                return {
+                    ...prev,
+                    interrupted: false
+                }
             })
             motionSyncRef.current.play(destination.stream);
             source.start(0);
@@ -70,9 +77,11 @@ export function Live2dViewer(props: Live2dViewerProps) {
         }
     };
     useEffect(() => {
-        //console.log(playAudioWithSync)
-        setLiveStore(prev => {
-            return {...prev, audioPlayer: playAudioWithSync}
+        api.setApi?.(prev => {
+            return {
+                ...prev,
+                playAudio: playAudioWithSync
+            }
         })
     }, []);
     useEffect(() => {
