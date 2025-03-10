@@ -21,9 +21,10 @@ export function ChatBox() {
                     <div
                         className={cn("max-w-[75%] w-fit h-full flex flex-col gap-2", message.type === "user" ? "items-end" : "items-start")}>
                         <p className={"text-sm font-semibold w-fit"}>{message.name || "Display Name"}</p>
-                        <div className={"h-fit w-full rounded-sm shadow p-2 flex-col justify-start items-start"}>
+                        <div className={cn("h-fit w-fit rounded-sm shadow p-2 flex-col justify-start",message.type==="user"?"items-end":"items-start ")}>
+                            
 
-                            <p className={"text-sm"}>{message.content || " "}</p>
+                            <p className={"text-sm w-fit"}>{message.content || " "}</p>
                         </div>
                     </div>
 

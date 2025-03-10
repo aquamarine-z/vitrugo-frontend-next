@@ -83,6 +83,7 @@ export function Live2dViewer({api,...props}: Live2dViewerProps) {
                 playAudio: playAudioWithSync
             }
         })
+        
     }, []);
     useEffect(() => {
         if (!canvasRef.current) return;
