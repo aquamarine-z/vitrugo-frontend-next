@@ -124,3 +124,8 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* 字幕淡出动画，可根据需要调整 */
+.subtitle-fade {
+  transition: opacity 0.7s, filter 0.7s;
+}
