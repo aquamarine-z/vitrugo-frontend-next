@@ -199,20 +199,40 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
         <Button variant="ghost" size="icon" style={{ position: 'fixed', top: 16, left: 16, zIndex: 1000 }} onClick={() => setSidebarOpen(true)}>
             <svg width="24" height="24" fill="none" stroke="#fff" style={{color: '#fff'}} strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5 15.4a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 5 8.6a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09c0 .66.38 1.26 1 1.51a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.66 0 1.26.38 1.51 1H21a2 2 0 1 1 0 4h-.09c-.25 0-.48.09-.68.26z"/></svg>
         </Button>
-        {/* 侧边栏 */}
+        {/* 设置弹窗（居中圆角弹窗） */}
         {sidebarOpen && (
-            <div style={{
-                position: 'fixed', left: 0, top: 0, bottom: 0, width: 300, background: 'var(--sidebar)', color: 'var(--sidebar-foreground)', zIndex: 2000, boxShadow: '2px 0 8px rgba(0,0,0,0.08)', transition: 'transform 0.3s', transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
-            }}>
-                <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <>
+                {/* 遮罩层 */}
+                <div style={{ position: 'fixed', left: 0, top: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.25)', zIndex: 2000 }} onClick={() => setSidebarOpen(false)} />
+                {/* 居中弹窗 */}
+                <div style={{
+                    position: 'fixed',
+                    left: '50%',
+                    top: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    minWidth: 480,
+                    maxWidth: '95vw',
+                    minHeight: 320,
+                    background: 'var(--sidebar, #fff)',
+                    color: 'var(--sidebar-foreground, #222)',
+                    zIndex: 2100,
+                    borderRadius: 18,
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+                    padding: 40,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 16,
+                }} onClick={e => e.stopPropagation()}>
+                    {/* 右上角关闭按钮 */}
+                    <Button variant="ghost" size="icon" style={{ position: 'absolute', top: 12, right: 12 }} onClick={() => setSidebarOpen(false)} aria-label="关闭设置">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
+                    </Button>
                     <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>设置</div>
                     {/* 此处可添加其它设置项 */}
-                    <Button variant="ghost" onClick={() => setSidebarOpen(false)}>关闭</Button>
+                    <div style={{ flex: 1 }} />
                 </div>
-            </div>
+            </>
         )}
-        {/* 遮罩层 */}
-        {sidebarOpen && <div style={{ position: 'fixed', left: 0, top: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.15)', zIndex: 1500 }} onClick={() => setSidebarOpen(false)} />}
         {/* 连接/断开按钮 */}
         <div style={{ position: 'fixed', top: 16, left: 72, zIndex: 1000 }}>
             {roomState.isConnected ? (
