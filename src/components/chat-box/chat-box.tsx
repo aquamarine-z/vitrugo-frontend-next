@@ -16,8 +16,6 @@ export function ChatBox({ sidebarOpen, setSidebarOpen }: ChatBoxProps) {
     // 当前会话标题（可根据实际业务调整）
     const currentTitle = "当前会话";
     return <div className={"w-full h-full flex flex-col items-center relative"}>
-        {/* 遮罩层 */}
-        {sidebarOpen && <div style={{position:'fixed',left:0,top:0,right:0,bottom:0,zIndex:2999,background:'rgba(0,0,0,0.15)'}} onClick={()=>setSidebarOpen(false)}/>} 
         {/* 会话栏 */}
         <ConversationSidebar open={sidebarOpen} onClose={()=>setSidebarOpen(false)} />
         {/* 顶部标题栏 */}
