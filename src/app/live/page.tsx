@@ -10,6 +10,7 @@ import dynamic from 'next/dynamic';
 import {Subtitle} from "@/components/subtitle/subtitle";
 import {Live2dViewerApi} from "@/components/live2d-viewer/live2d-viewer";
 import {RoomWebsocketConnector} from "@/components/room-websocket-connector";
+import {useRouter} from "next/navigation";
 
 const Live2dViewer = dynamic(() => import('../../components/live2d-viewer/live2d-viewer').then(mod => mod.Live2dViewer), {ssr: false});
 
@@ -17,7 +18,15 @@ export default function LivePage() {
     const [scriptCoreLoaded, setScriptCoreLoaded] = useState(false)
     const [scriptLive2dLoaded, setScriptLive2dLoaded] = useState(false)
     const [live2dApi, setLive2dApi] = useState({} as Live2dViewerApi)
+    const router = useRouter();
     useEffect(() => {
+        // 登录校验
+        if (typeof window !== 'undefined') {
+            const token = localStorage.getItem("token");
+            if (!token) {
+                router.replace("/login");
+            }
+        }
         setLive2dApi({
             ...live2dApi,
             setApi: setLive2dApi

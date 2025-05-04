@@ -18,29 +18,9 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
 
     // 新增本地状态
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const [authCode, setAuthCode] = useState<string>("");
-    const [inputAuthCode, setInputAuthCode] = useState<string>("");
-
-    // 初始化时从 localStorage 读取认证码
-    useEffect(() => {
-        const saved = localStorage.getItem("authCode") || "";
-        setAuthCode(saved);
-        setInputAuthCode(saved);
-    }, []);
-
-    // 保存认证码到 localStorage
-    const handleSaveAuthCode = () => {
-        setAuthCode(inputAuthCode);
-        localStorage.setItem("authCode", inputAuthCode);
-        setSidebarOpen(false);
-    };
 
     // 连接/断开逻辑
     const handleConnect = () => {
-        if (!authCode) {
-            alert("请先设置认证码");
-            return;
-        }
         connectWebSocket();
     };
     const handleDisconnect = () => {
@@ -50,14 +30,14 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
         }
     };
 
-    // 修改 connectWebSocket，带上认证码
+    // 连接 WebSocket，自动带上 token
     const connectWebSocket = () => {
         try {
             if (roomState.websocket?.readyState === WebSocket.OPEN) {
                 return;
             }
-            // 认证码通过 URL 参数传递
-            const wsUrl = `ws://127.0.0.1:8080/ws?auth=${encodeURIComponent(authCode)}`;
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+            const wsUrl = token ? `ws://127.0.0.1:8081/ws?token=${encodeURIComponent(token)}` : `ws://127.0.0.1:8081/ws`;
             const websocket = new WebSocket(wsUrl);
             websocket.binaryType = 'arraybuffer';
             websocket.onopen = () => {
@@ -217,7 +197,7 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     return <>
         {/* 齿轮按钮 */}
         <Button variant="ghost" size="icon" style={{ position: 'fixed', top: 16, left: 16, zIndex: 1000 }} onClick={() => setSidebarOpen(true)}>
-            <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5 15.4a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 5 8.6a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09c0 .66.38 1.26 1 1.51a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.66 0 1.26.38 1.51 1H21a2 2 0 1 1 0 4h-.09c-.25 0-.48.09-.68.26z"/></svg>
+            <svg width="24" height="24" fill="none" stroke="#fff" style={{color: '#fff'}} strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5 15.4a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 5 8.6a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09c0 .66.38 1.26 1 1.51a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.66 0 1.26.38 1.51 1H21a2 2 0 1 1 0 4h-.09c-.25 0-.48.09-.68.26z"/></svg>
         </Button>
         {/* 侧边栏 */}
         {sidebarOpen && (
@@ -226,15 +206,7 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
             }}>
                 <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>设置</div>
-                    <label style={{ fontSize: 14, marginBottom: 4 }}>认证码</label>
-                    <input
-                        type="text"
-                        value={inputAuthCode}
-                        onChange={e => setInputAuthCode(e.target.value)}
-                        style={{ padding: 8, borderRadius: 4, border: '1px solid var(--border)', marginBottom: 8 }}
-                        placeholder="请输入认证码"
-                    />
-                    <Button onClick={handleSaveAuthCode}>保存</Button>
+                    {/* 此处可添加其它设置项 */}
                     <Button variant="ghost" onClick={() => setSidebarOpen(false)}>关闭</Button>
                 </div>
             </div>
