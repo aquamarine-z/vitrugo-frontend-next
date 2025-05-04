@@ -19,6 +19,9 @@ export default function LivePage() {
     const [scriptLive2dLoaded, setScriptLive2dLoaded] = useState(false)
     const [live2dApi, setLive2dApi] = useState({} as Live2dViewerApi)
     const router = useRouter();
+    // 分别管理会话栏和设置弹窗开关
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
     useEffect(() => {
         // 登录校验
         if (typeof window !== 'undefined') {
@@ -48,7 +51,13 @@ export default function LivePage() {
 
             {scriptCoreLoaded && scriptLive2dLoaded &&
                 <div className="w-100vw h-100vh absolute left-0 right-0 top-0 bottom-0 ">
-                    <RoomWebsocketConnector live2dApi={live2dApi}/>
+                    <RoomWebsocketConnector
+                        live2dApi={live2dApi}
+                        sidebarOpen={sidebarOpen}
+                        settingsOpen={settingsOpen}
+                        setSidebarOpen={setSidebarOpen}
+                        setSettingsOpen={setSettingsOpen}
+                    />
                     <ResizablePanelGroup direction="horizontal" className={"w-full h-full"}>
                         <ResizablePanel defaultSize={80}>
                             <div className={"relative w-full h-full"}>
@@ -65,7 +74,7 @@ export default function LivePage() {
                         </ResizablePanel>
                         <ResizableHandle/>
                         <ResizablePanel defaultSize={20} minSize={10}>
-                            <ChatBox/>
+                            <ChatBox sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}/>
                         </ResizablePanel>
                     </ResizablePanelGroup>
                 </div>}

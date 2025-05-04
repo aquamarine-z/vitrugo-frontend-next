@@ -1,15 +1,18 @@
 'use client'
-import React, {useState} from "react";
+import React from "react";
 import {useAtom} from "jotai";
 import {ChatBoxInput} from "@/components/chat-box/chat-box-input";
 import {cn} from "@/lib/utils";
 import {ChatMessage, ChatStore} from "@/store/chat-message-store";
 import {ConversationSidebar} from "@/components/chat-box/conversation-sidebar";
 
-export function ChatBox() {
+interface ChatBoxProps {
+    sidebarOpen: boolean;
+    setSidebarOpen: (open: boolean) => void;
+}
+
+export function ChatBox({ sidebarOpen, setSidebarOpen }: ChatBoxProps) {
     const [chatStore]=useAtom(ChatStore)
-    // 会话栏开关
-    const [sidebarOpen, setSidebarOpen] = useState(false);
     // 当前会话标题（可根据实际业务调整）
     const currentTitle = "当前会话";
     return <div className={"w-full h-full flex flex-col items-center relative"}>

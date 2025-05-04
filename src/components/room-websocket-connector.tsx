@@ -1,12 +1,16 @@
 import {Live2dViewerApi} from "@/components/live2d-viewer/live2d-viewer";
-import {useEffect, useRef, useState} from "react";
+import {useEffect, useRef} from "react";
 import {useAtom} from "jotai";
 import {RoomStateStore} from "@/store/room-state-store";
 import {ChatMessage, ChatStore} from "@/store/chat-message-store";
 import { Button } from "@/components/ui/button";
 
 interface RoomWebsocketConnectorProps {
-    live2dApi?: Live2dViewerApi
+    live2dApi?: Live2dViewerApi;
+    sidebarOpen: boolean;
+    setSidebarOpen: (open: boolean) => void;
+    settingsOpen: boolean;
+    setSettingsOpen: (open: boolean) => void;
 }
 
 export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
@@ -15,9 +19,6 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     const currentSubtitleRef = useRef("")
     const reconnectTimeoutRef = useRef<number>(null)
     const [, setChatStore] = useAtom(ChatStore)
-
-    // 新增本地状态
-    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     // 连接/断开逻辑
     const handleConnect = () => {
@@ -178,7 +179,6 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
         }
     };
 
-    // 移除自动连接 useEffect，只保留清理逻辑
     useEffect(() => {
         return () => {
             if (roomState.websocket) {
@@ -194,16 +194,21 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
         };
     }, []);
 
+    // 侧边栏宽度
+    const SIDEBAR_WIDTH = 320;
+    const buttonTransform = props.sidebarOpen ? `translateX(${SIDEBAR_WIDTH}px)` : 'none';
+    const buttonTransition = 'transform 0.3s cubic-bezier(.4,0,.2,1)';
+
     return <>
         {/* 齿轮按钮 */}
-        <Button variant="ghost" size="icon" style={{ position: 'fixed', top: 16, left: 16, zIndex: 1000 }} onClick={() => setSidebarOpen(true)}>
+        <Button variant="ghost" size="icon" style={{ position: 'fixed', top: 16, left: 16, zIndex: 1000, transform: buttonTransform, transition: buttonTransition }} onClick={() => props.setSettingsOpen(true)}>
             <svg width="24" height="24" fill="none" stroke="#fff" style={{color: '#fff'}} strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5 15.4a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 5 8.6a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09c0 .66.38 1.26 1 1.51a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.66 0 1.26.38 1.51 1H21a2 2 0 1 1 0 4h-.09c-.25 0-.48.09-.68.26z"/></svg>
         </Button>
         {/* 设置弹窗（居中圆角弹窗） */}
-        {sidebarOpen && (
+        {props.settingsOpen && (
             <>
                 {/* 遮罩层 */}
-                <div style={{ position: 'fixed', left: 0, top: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.25)', zIndex: 2000 }} onClick={() => setSidebarOpen(false)} />
+                <div style={{ position: 'fixed', left: 0, top: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.25)', zIndex: 2000 }} onClick={() => props.setSettingsOpen(false)} />
                 {/* 居中弹窗 */}
                 <div style={{
                     position: 'fixed',
@@ -224,7 +229,7 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                     gap: 16,
                 }} onClick={e => e.stopPropagation()}>
                     {/* 右上角关闭按钮 */}
-                    <Button variant="ghost" size="icon" style={{ position: 'absolute', top: 12, right: 12 }} onClick={() => setSidebarOpen(false)} aria-label="关闭设置">
+                    <Button variant="ghost" size="icon" style={{ position: 'absolute', top: 12, right: 12 }} onClick={() => props.setSettingsOpen(false)} aria-label="关闭设置">
                         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
                     </Button>
                     <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>设置</div>
@@ -234,7 +239,7 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
             </>
         )}
         {/* 连接/断开按钮 */}
-        <div style={{ position: 'fixed', top: 16, left: 72, zIndex: 1000 }}>
+        <div style={{ position: 'fixed', top: 16, left: 72, zIndex: 1000, transform: buttonTransform, transition: buttonTransition }}>
             {roomState.isConnected ? (
                 <Button variant="destructive" onClick={handleDisconnect}>断开连接</Button>
             ) : (
