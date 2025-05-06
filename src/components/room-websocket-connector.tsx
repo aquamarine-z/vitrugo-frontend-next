@@ -31,14 +31,14 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
         }
     };
 
-    // 连接 WebSocket，自动带上 token
+    // 连接 WebSocket
     const connectWebSocket = () => {
         try {
             if (roomState.websocket?.readyState === WebSocket.OPEN) {
                 return;
             }
-            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-            const wsUrl = token ? `ws://127.0.0.1:8081/ws?token=${encodeURIComponent(token)}` : `ws://127.0.0.1:8081/ws`;
+            // 直接使用 ws 地址，不拼接 token
+            const wsUrl = `ws://127.0.0.1:8081/ws`;
             const websocket = new WebSocket(wsUrl);
             websocket.binaryType = 'arraybuffer';
             websocket.onopen = () => {

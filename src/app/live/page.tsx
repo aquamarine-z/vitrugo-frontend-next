@@ -23,13 +23,6 @@ export default function LivePage() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     useEffect(() => {
-        // 登录校验
-        if (typeof window !== 'undefined') {
-            const token = localStorage.getItem("token");
-            if (!token) {
-                router.replace("/login");
-            }
-        }
         setLive2dApi({
             ...live2dApi,
             setApi: setLive2dApi

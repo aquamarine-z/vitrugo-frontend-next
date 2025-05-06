@@ -20,15 +20,14 @@ export default function LoginPage() {
         setLoading(true);
         setError("");
         try {
-            const res = await fetch("http://localhost:8081/login", {
+            const res = await fetch("http://127.0.0.1:8081/login", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({username, password})
+                body: JSON.stringify({username, password}),
+                credentials: "include"
             });
             if (!res.ok) throw new Error("登录失败");
             const data = await res.json();
-            if (!data.token) throw new Error("未返回token");
-            localStorage.setItem("token", data.token);
             router.replace("/live");
         } catch (e: any) {
             setError(e.message || "登录失败");
@@ -46,7 +45,8 @@ export default function LoginPage() {
             const res = await fetch("http://127.0.0.1:8081/register", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({ username: regUsername, password: passwordToSend, auth_key: regAuthKey })
+                body: JSON.stringify({ username: regUsername, password: passwordToSend, auth_key: regAuthKey }),
+                credentials: "include"
             });
             if (!res.ok) throw new Error("注册失败");
             setShowRegister(false);

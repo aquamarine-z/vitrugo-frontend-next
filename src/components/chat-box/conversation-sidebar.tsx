@@ -21,9 +21,9 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
         if (!open) return;
         setLoading(true);
         setError(null);
-        // 获取 token
-        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-        fetch(`http://127.0.0.1:8081/conversation?token=${token || ''}`)
+        fetch(`http://127.0.0.1:8081/conversation`, {
+            credentials: 'include'
+        })
             .then(res => res.json())
             .then(data => {
                 if (Array.isArray(data.conversations)) {
@@ -33,7 +33,10 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
                     setConversations([]);
                 }
             })
-            .catch(e => setError('加载失败'))
+            .catch(err => {
+                setError('获取会话失败');
+                setConversations([]);
+            })
             .finally(() => setLoading(false));
     }, [open]);
 
