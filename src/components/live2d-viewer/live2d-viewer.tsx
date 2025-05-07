@@ -17,7 +17,7 @@ export class Live2dViewerApi {
 }
 
 export function Live2dViewer({api,...props}: Live2dViewerProps) {
-    const canvasRef = useRef(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
     const appRef = useRef<PIXI.Application>(null); // 用于存储 PIXI 应用实例
     const motionSyncRef = useRef<MotionSync>(null);  // 添加 motionSync 的 ref
     const audioSourceRef = useRef<AudioBufferSourceNode>(null);
@@ -118,7 +118,11 @@ export function Live2dViewer({api,...props}: Live2dViewerProps) {
             backgroundAlpha: 0,
         });
         appRef.current = app;
-        Live2DModel.from("/ariu/ariu.model3.json").then((model) => {
+        //mao_pro_zh/runtime/mao_pro.model3.json
+        //hiyori_pro_zh/runtime/hiyori_pro_t11.model3.json
+        //ariu/ariu.model3.json
+        Live2DModel.from("mao_pro_zh/runtime/mao_pro.model3.json").then((model) => {
+        
             const motionSync = new MotionSync(model.internalModel);
             motionSyncRef.current = motionSync;
             motionSync.loadDefaultMotionSync();
@@ -126,22 +130,85 @@ export function Live2dViewer({api,...props}: Live2dViewerProps) {
             app.stage.addChild(model);
             model.x = app.screen.width / 2;
             model.y = app.screen.height / 2;
-            model.scale.set(0.12);
+            model.scale.set(0.09);
             model.anchor.set(0.5, 0.5);
+            
 
-            model.expression("exp_02");
-            model.on("hit", (hitAreas: string | string[]) => {
-                console.log("hit", hitAreas);
-                if (hitAreas.includes("Body")) {
-                    model.motion("Tap");
+            // === 钟摆式随机目标角度摇摆 ===
+            let currentAngle = 0;
+            let startAngle = 0;
+            let targetAngle = 0;
+            let animStartTime = 0;
+            let animDuration = 1000; // ms
+            let stayDuration = 1000; // ms
+            let isStaying = false;
+            const minAngle = -70;
+            const maxAngle = 70;
+            const minStay = 1000; // ms
+            const maxStay = 3000; // ms
+            const minAnim = 1600; // ms
+            const maxAnim = 3200; // ms
+            function randomTarget() {
+                return minAngle + Math.random() * (maxAngle - minAngle);
+            }
+            function randomStay() {
+                return minStay + Math.random() * (maxStay - minStay);
+            }
+            function randomAnim() {
+                return minAnim + Math.random() * (maxAnim - minAnim);
+            }
+            function easeInOut(t: number) {
+                return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+            }
+            function setNextTarget() {
+                startAngle = currentAngle;
+                const minDelta = 35; // 最小角度差，单位：度
+                let next;
+                let tryCount = 0;
+                do {
+                    next = randomTarget();
+                    tryCount++;
+                } while (Math.abs(next - currentAngle) < minDelta && tryCount < 10);
+                targetAngle = next;
+                animDuration = randomAnim();
+                animStartTime = Date.now();
+                isStaying = false;
+            }
+            setNextTarget();
+            let animationFrameId: number;
+            const animate = () => {
+                const now = Date.now();
+                if (!isStaying) {
+                    const t = Math.min((now - animStartTime) / animDuration, 1);
+                    const progress = easeInOut(t);
+                    currentAngle = startAngle + (targetAngle - startAngle) * progress;
+                    if (t >= 1) {
+                        isStaying = true;
+                        animStartTime = now;
+                        stayDuration = randomStay();
+                    }
+                } else {
+                    // 停留阶段
+                    if (now - animStartTime > stayDuration) {
+                        setNextTarget();
+                    }
                 }
-            });
-
-            props.onLoad?.()
-
-            return () => {
+                // 设置头部和身体参数
+                (model.internalModel.coreModel as any).setParameterValueById('ParamAngleX', 0);
+                (model.internalModel.coreModel as any).setParameterValueById('ParamAngleY', 0);
+                (model.internalModel.coreModel as any).setParameterValueById('ParamAngleZ', currentAngle);
+                (model.internalModel.coreModel as any).setParameterValueById('ParamBodyAngleX', currentAngle * 0.3);
+                (model.internalModel.coreModel as any).setParameterValueById('ParamBodyAngleZ', currentAngle);
+                animationFrameId = requestAnimationFrame(animate);
+            };
+            animate();
+            // 清理事件
+            const cleanup = () => {
+                cancelAnimationFrame(animationFrameId);
                 app.destroy(true, {children: true, texture: true, baseTexture: true});
             };
+            props.onLoad?.()
+            return cleanup;
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             //@ts-expect-error
         }).catch((error: never) => {
