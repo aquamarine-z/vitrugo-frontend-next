@@ -146,8 +146,8 @@ export function Live2dViewer({api,...props}: Live2dViewerProps) {
             const maxAngle = 70;
             const minStay = 1000; // ms
             const maxStay = 3000; // ms
-            const minAnim = 1600; // ms
-            const maxAnim = 3200; // ms
+            const minAnim = 600; // ms
+            const maxAnim = 1200; // ms
             function randomTarget() {
                 return minAngle + Math.random() * (maxAngle - minAngle);
             }

@@ -5,6 +5,7 @@ import {ChatBoxInput} from "@/components/chat-box/chat-box-input";
 import {cn} from "@/lib/utils";
 import {ChatMessage, ChatStore} from "@/store/chat-message-store";
 import {ConversationSidebar} from "@/components/chat-box/conversation-sidebar";
+import {RoomStateStore} from "@/store/room-state-store";
 
 interface ChatBoxProps {
     sidebarOpen: boolean;
@@ -12,12 +13,33 @@ interface ChatBoxProps {
 }
 
 export function ChatBox({ sidebarOpen, setSidebarOpen }: ChatBoxProps) {
-    const [chatStore]=useAtom(ChatStore)
-    // 当前会话标题（可根据实际业务调整）
-    const currentTitle = "当前会话";
+    const [chatStore, setChatStore]=useAtom(ChatStore)
+    const [roomState, setRoomState] = useAtom(RoomStateStore);
+    const [currentTitle, setCurrentTitle] = React.useState("当前会话")
+    // 处理会话选择
+    const handleSelectConversation = React.useCallback((data: {title: string, messages: any[], id?: number}) => {
+        setCurrentTitle(data.title || "会话");
+        // 转换消息格式，确保 type 字段类型安全
+        const messages = (data.messages || []).map((msg: any) => {
+            let type: "user" | "assistant" | "system" = "user";
+            if (msg.role === "assistant") type = "assistant";
+            else if (msg.role === "system") type = "system";
+            else type = "user";
+            return {
+                content: msg.content,
+                name: msg.senderName || (type === 'assistant' ? 'AI' : '用户'),
+                type,
+                avatar: undefined
+            };
+        });
+        setChatStore({ messages });
+        setSidebarOpen(false);
+        // 设置当前 sessionId，兼容 id 可能为 undefined
+        setRoomState(prev => ({ ...prev, sessionId: data.id }));
+    }, [setChatStore, setSidebarOpen, setRoomState]);
     return <div className={"w-full h-full flex flex-col items-center relative"}>
         {/* 会话栏 */}
-        <ConversationSidebar open={sidebarOpen} onClose={()=>setSidebarOpen(false)} />
+        <ConversationSidebar open={sidebarOpen} onClose={()=>setSidebarOpen(false)} onSelectConversation={handleSelectConversation} />
         {/* 顶部标题栏 */}
         <div className="w-full flex items-center justify-center relative" style={{height:48}}>
             {/* 左侧按钮 */}

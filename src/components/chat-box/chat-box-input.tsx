@@ -36,11 +36,11 @@ export function ChatBoxInput() {
             //error('未连接到服务器，请等待重连...');
             return;
         }
-
         try {
             const wsMessage = {
                 type: 'text',
-                content: inputMessage
+                content: inputMessage,
+                session_id: roomState.sessionId // 新增字段
             };
             setChatStore(prev => {
                 return {

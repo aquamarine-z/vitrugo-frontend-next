@@ -10,9 +10,10 @@ interface Conversation {
 interface ConversationSidebarProps {
     open: boolean;
     onClose: () => void;
+    onSelectConversation?: (data: {title: string, messages: any[], id: number}) => void;
 }
 
-export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, onClose }) => {
+export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, onClose, onSelectConversation }) => {
     const [loading, setLoading] = useState(false);
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [error, setError] = useState<string | null>(null);
@@ -70,7 +71,21 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
                 {!loading && !error && conversations.length === 0 && <div>暂无会话</div>}
                 <ul style={{listStyle: 'none', padding: 0, margin: 0}}>
                     {conversations.map(conv => (
-                        <li key={conv.id} style={{padding: '8px 0', borderBottom: '1px solid #f2f2f2'}}>
+                        <li key={conv.id} style={{padding: '8px 0', borderBottom: '1px solid #f2f2f2', cursor:'pointer'}}
+                            onClick={async () => {
+                                try {
+                                    const res = await fetch(`http://127.0.0.1:8081/conversation/${conv.id}`, {
+                                        credentials: 'include'
+                                    });
+                                    const data = await res.json();
+                                    if (onSelectConversation && data) {
+                                        onSelectConversation({title: data.title, messages: data.messages, id: data.id}); // 传递 id 字段
+                                    }
+                                } catch (e) {
+                                    alert('获取会话历史失败');
+                                }
+                            }}
+                        >
                             <div style={{fontWeight: 500}}>{conv.title}</div>
                             <div style={{fontSize: 12, color: '#888'}}>{new Date(conv.created_at).toLocaleString()}</div>
                         </li>
