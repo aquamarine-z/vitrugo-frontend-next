@@ -25,7 +25,13 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
         fetch(`http://127.0.0.1:8081/conversation`, {
             credentials: 'include'
         })
-            .then(res => res.json())
+            .then(res => {
+                if (res.status === 401) {
+                    window.location.href = '/login';
+                    return Promise.reject('未登录');
+                }
+                return res.json();
+            })
             .then(data => {
                 if (Array.isArray(data.conversations)) {
                     // 按 created_at 升序
@@ -77,6 +83,10 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
                                     const res = await fetch(`http://127.0.0.1:8081/conversation/${conv.id}`, {
                                         credentials: 'include'
                                     });
+                                    if (res.status === 401) {
+                                        window.location.href = '/login';
+                                        return;
+                                    }
                                     const data = await res.json();
                                     if (onSelectConversation && data) {
                                         onSelectConversation({title: data.title, messages: data.messages, id: data.id}); // 传递 id 字段

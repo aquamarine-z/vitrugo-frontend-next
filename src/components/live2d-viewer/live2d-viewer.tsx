@@ -144,10 +144,10 @@ export function Live2dViewer({api,...props}: Live2dViewerProps) {
             let isStaying = false;
             const minAngle = -70;
             const maxAngle = 70;
-            const minStay = 1000; // ms
-            const maxStay = 3000; // ms
-            const minAnim = 600; // ms
-            const maxAnim = 1200; // ms
+            const minStay = 3000; // ms
+            const maxStay = 5000; // ms
+            const minAnim = 100; // ms
+            const maxAnim = 120; // ms
             function randomTarget() {
                 return minAngle + Math.random() * (maxAngle - minAngle);
             }
@@ -173,6 +173,7 @@ export function Live2dViewer({api,...props}: Live2dViewerProps) {
                 animDuration = randomAnim();
                 animStartTime = Date.now();
                 isStaying = false;
+                console.log('新目标角度:', targetAngle); // 输出每次设定的角度
             }
             setNextTarget();
             let animationFrameId: number;
