@@ -18,6 +18,12 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [error, setError] = useState<string | null>(null);
 
+    // 新增：用于记录哪个会话的菜单被打开
+    const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
+    // 新增：重命名输入框状态
+    const [renameId, setRenameId] = useState<number | null>(null);
+    const [renameValue, setRenameValue] = useState('');
+
     useEffect(() => {
         if (!open) return;
         setLoading(true);
@@ -46,6 +52,46 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
             })
             .finally(() => setLoading(false));
     }, [open]);
+
+    // 删除会话
+    const handleDelete = async (id: number) => {
+        if (!window.confirm('确定要删除该会话吗？')) return;
+        try {
+            const res = await fetch(`http://127.0.0.1:8081/conversation/${id}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+            if (res.status === 401) {
+                window.location.href = '/login';
+                return;
+            }
+            setConversations(conversations.filter(c => c.id !== id));
+        } catch (e) {
+            alert('删除失败');
+        }
+        setMenuOpenId(null);
+    };
+    // 重命名会话
+    const handleRename = async (id: number) => {
+        if (!renameValue.trim()) return;
+        try {
+            const res = await fetch(`http://127.0.0.1:8081/conversation/${id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                credentials: 'include',
+                body: JSON.stringify({title: renameValue.trim()})
+            });
+            if (res.status === 401) {
+                window.location.href = '/login';
+                return;
+            }
+            setConversations(conversations.map(c => c.id === id ? {...c, title: renameValue.trim()} : c));
+            setRenameId(null);
+        } catch (e) {
+            alert('重命名失败');
+        }
+        setMenuOpenId(null);
+    };
 
     return (
         <div
@@ -77,8 +123,10 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
                 {!loading && !error && conversations.length === 0 && <div>暂无会话</div>}
                 <ul style={{listStyle: 'none', padding: 0, margin: 0}}>
                     {conversations.map(conv => (
-                        <li key={conv.id} style={{padding: '8px 0', borderBottom: '1px solid #f2f2f2', cursor:'pointer'}}
-                            onClick={async () => {
+                        <li key={conv.id} style={{padding: '8px 0', borderBottom: '1px solid #f2f2f2', cursor:'pointer', position:'relative', display:'flex', alignItems:'center', justifyContent:'space-between'}}
+                            onClick={async (e) => {
+                                // 如果点击了菜单按钮，不触发会话选择
+                                if ((e.target as HTMLElement).closest('.conv-menu-btn')) return;
                                 try {
                                     const res = await fetch(`http://127.0.0.1:8081/conversation/${conv.id}`, {
                                         credentials: 'include'
@@ -89,15 +137,36 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
                                     }
                                     const data = await res.json();
                                     if (onSelectConversation && data) {
-                                        onSelectConversation({title: data.title, messages: data.messages, id: data.id}); // 传递 id 字段
+                                        onSelectConversation({title: data.title, messages: data.messages, id: data.id});
                                     }
                                 } catch (e) {
                                     alert('获取会话历史失败');
                                 }
                             }}
                         >
-                            <div style={{fontWeight: 500}}>{conv.title}</div>
-                            <div style={{fontSize: 12, color: '#888'}}>{new Date(conv.created_at).toLocaleString()}</div>
+                            <div style={{flex:1, minWidth:0}}>
+                                {renameId === conv.id ? (
+                                    <form style={{display:'flex',alignItems:'center'}} onSubmit={e => {e.preventDefault();handleRename(conv.id);}}>
+                                        <input value={renameValue} autoFocus onChange={e=>setRenameValue(e.target.value)} style={{fontWeight:500, fontSize:15, flex:1, marginRight:4}}/>
+                                        <button type="submit" style={{marginRight:4}}>保存</button>
+                                        <button type="button" onClick={()=>{setRenameId(null);setMenuOpenId(null);}}>取消</button>
+                                    </form>
+                                ) : (
+                                    <>
+                                        <div style={{fontWeight: 500, fontSize:15, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{conv.title}</div>
+                                        <div style={{fontSize: 12, color: '#888'}}>{new Date(conv.created_at).toLocaleString()}</div>
+                                    </>
+                                )}
+                            </div>
+                            <button className="conv-menu-btn" style={{background:'none',border:'none',padding:'0 8px',cursor:'pointer',fontSize:18}} onClick={e => {e.stopPropagation(); setMenuOpenId(menuOpenId === conv.id ? null : conv.id); setRenameId(null);}}>
+                                ...
+                            </button>
+                            {menuOpenId === conv.id && (
+                                <div style={{position:'absolute',right:0,top:'100%',background:'#fff',boxShadow:'0 2px 8px rgba(0,0,0,0.12)',borderRadius:4,padding:4,zIndex:10,minWidth:90}} onClick={e=>e.stopPropagation()}>
+                                    <button style={{display:'block',width:'100%',padding:'6px 8px',border:'none',background:'none',textAlign:'left',cursor:'pointer'}} onClick={()=>{setRenameId(conv.id);setRenameValue(conv.title);setMenuOpenId(null);}}>重命名</button>
+                                    <button style={{display:'block',width:'100%',padding:'6px 8px',border:'none',background:'none',textAlign:'left',color:'red',cursor:'pointer'}} onClick={()=>handleDelete(conv.id)}>删除</button>
+                                </div>
+                            )}
                         </li>
                     ))}
                 </ul>
