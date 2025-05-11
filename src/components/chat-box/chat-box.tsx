@@ -1,5 +1,5 @@
 'use client'
-import React from "react";
+import React, {useEffect, useRef} from "react";
 import {useAtom} from "jotai";
 import {ChatBoxInput} from "@/components/chat-box/chat-box-input";
 import {cn} from "@/lib/utils";
@@ -15,6 +15,7 @@ interface ChatBoxProps {
 export function ChatBox({ sidebarOpen, setSidebarOpen }: ChatBoxProps) {
     const [chatStore, setChatStore]=useAtom(ChatStore)
     const [roomState, setRoomState] = useAtom(RoomStateStore);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
     const [currentTitle, setCurrentTitle] = React.useState("当前会话")
     // 处理会话选择
     const handleSelectConversation = React.useCallback((data: {title: string, messages: any[], id?: number}) => {
@@ -37,6 +38,12 @@ export function ChatBox({ sidebarOpen, setSidebarOpen }: ChatBoxProps) {
         // 设置当前 sessionId，兼容 id 可能为 undefined
         setRoomState(prev => ({ ...prev, sessionId: data.id }));
     }, [setChatStore, setSidebarOpen, setRoomState]);
+    // 当消息更新时，滚动到底部
+    useEffect(() => {
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [chatStore.messages]);
     return <div className={"w-full h-full flex flex-col items-center relative"}>
         {/* 会话栏 */}
         <ConversationSidebar open={sidebarOpen} onClose={()=>setSidebarOpen(false)} onSelectConversation={handleSelectConversation} />
@@ -72,6 +79,8 @@ export function ChatBox({ sidebarOpen, setSidebarOpen }: ChatBoxProps) {
                     </div>
                 </div>
             })}
+            {/* 占位，用于滚动到底部 */}
+            <div ref={messagesEndRef} />
         </div>
         <div className={"w-full h-[25%]"}>
             <ChatBoxInput/>

@@ -17,6 +17,8 @@ export class Live2dViewerApi {
 }
 
 export function Live2dViewer({api,...props}: Live2dViewerProps) {
+    // 全局 AudioContext 引用
+    const audioContextRef = useRef<AudioContext | null>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const appRef = useRef<PIXI.Application>(null); // 用于存储 PIXI 应用实例
     const motionSyncRef = useRef<MotionSync>(null);  // 添加 motionSync 的 ref
@@ -39,7 +41,11 @@ export function Live2dViewer({api,...props}: Live2dViewerProps) {
     useEffect(() => {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         //@ts-expect-error
-        if (!window.PIXI) window.PIXI = PIXI; // 让 pixi-live2d-display 能自动更新 Live2D 模型
+        if (!window.PIXI) window.PIXI = PIXI;
+        // 初始化全局 AudioContext
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        //@ts-expect-error
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
     }, []);
 
     const playAudioWithSync = async (arrayBuffer: ArrayBuffer) => {
@@ -60,11 +66,9 @@ export function Live2dViewer({api,...props}: Live2dViewerProps) {
                     setIsPlaying(false);
                     return;
                 }
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                //@ts-expect-error
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const audioData = arrayBuffer.slice(0);
-                const audioBuffer = await audioContext.decodeAudioData(audioData);
+                // 解码并创建播放源
+                const audioContext = audioContextRef.current!;
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
                 const source = audioContext.createBufferSource();
                 source.buffer = audioBuffer;
                 audioSourceRef.current = source;
@@ -78,13 +82,13 @@ export function Live2dViewer({api,...props}: Live2dViewerProps) {
                         interrupted: false
                     }
                 })
+                // 在统一 AudioContext 的 currentTime 上开始
                 motionSyncRef.current.play(destination.stream);
-                source.start(0);
+                source.start(audioContext.currentTime);
 
                 await new Promise<void>((resolve) => {
                     source.onended = () => {
                         motionSyncRef.current?.reset();
-                        audioContext.close();
                         resolve();
                     };
                 });
@@ -134,85 +138,84 @@ export function Live2dViewer({api,...props}: Live2dViewerProps) {
             model.anchor.set(0.5, 0.5);
             
 
-            // === 钟摆式随机目标角度摇摆 ===
-            let currentAngle = 0;
-            let startAngle = 0;
-            let targetAngle = 0;
-            let animStartTime = 0;
-            let animDuration = 1000; // ms
-            let stayDuration = 1000; // ms
-            let isStaying = false;
-            const minAngle = -70;
-            const maxAngle = 70;
-            const minStay = 3000; // ms
-            const maxStay = 5000; // ms
-            const minAnim = 100; // ms
-            const maxAnim = 120; // ms
-            function randomTarget() {
-                return minAngle + Math.random() * (maxAngle - minAngle);
-            }
-            function randomStay() {
-                return minStay + Math.random() * (maxStay - minStay);
-            }
-            function randomAnim() {
-                return minAnim + Math.random() * (maxAnim - minAnim);
-            }
-            function easeInOut(t: number) {
-                return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-            }
-            function setNextTarget() {
-                startAngle = currentAngle;
-                const minDelta = 35; // 最小角度差，单位：度
-                let next;
-                let tryCount = 0;
-                do {
-                    next = randomTarget();
-                    tryCount++;
-                } while (Math.abs(next - currentAngle) < minDelta && tryCount < 10);
-                targetAngle = next;
-                animDuration = randomAnim();
-                animStartTime = Date.now();
-                isStaying = false;
-                console.log('新目标角度:', targetAngle); // 输出每次设定的角度
-            }
-            setNextTarget();
-            let animationFrameId: number;
-            const animate = () => {
-                const now = Date.now();
-                if (!isStaying) {
-                    const t = Math.min((now - animStartTime) / animDuration, 1);
-                    const progress = easeInOut(t);
-                    currentAngle = startAngle + (targetAngle - startAngle) * progress;
-                    if (t >= 1) {
-                        isStaying = true;
-                        animStartTime = now;
-                        stayDuration = randomStay();
-                    }
-                } else {
-                    // 停留阶段
-                    if (now - animStartTime > stayDuration) {
-                        setNextTarget();
-                    }
-                }
-                // 设置头部和身体参数
-                (model.internalModel.coreModel as any).setParameterValueById('ParamAngleX', 0);
-                (model.internalModel.coreModel as any).setParameterValueById('ParamAngleY', 0);
-                (model.internalModel.coreModel as any).setParameterValueById('ParamAngleZ', currentAngle);
-                (model.internalModel.coreModel as any).setParameterValueById('ParamBodyAngleX', currentAngle * 0.3);
-                (model.internalModel.coreModel as any).setParameterValueById('ParamBodyAngleZ', currentAngle);
-                animationFrameId = requestAnimationFrame(animate);
-            };
-            animate();
-            // 清理事件
-            const cleanup = () => {
-                cancelAnimationFrame(animationFrameId);
-                app.destroy(true, {children: true, texture: true, baseTexture: true});
-            };
-            props.onLoad?.()
-            return cleanup;
+            // // === 钟摆式随机目标角度摇摆 ===
+            // let currentAngle = 0;
+            // let startAngle = 0;
+            // let targetAngle = 0;
+            // let animStartTime = 0;
+            // let animDuration = 1000; // ms
+            // let stayDuration = 1000; // ms
+            // let isStaying = false;
+            // const minAngle = -70;
+            // const maxAngle = 70;
+            // const minStay = 3000; // ms
+            // const maxStay = 5000; // ms
+            // const minAnim = 100; // ms
+            // const maxAnim = 120; // ms
+            // function randomTarget() {
+            //     return minAngle + Math.random() * (maxAngle - minAngle);
+            // }
+            // function randomStay() {
+            //     return minStay + Math.random() * (maxStay - minStay);
+            // }
+            // function randomAnim() {
+            //     return minAnim + Math.random() * (maxAnim - minAnim);
+            // }
+            // function easeInOut(t: number) {
+            //     return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+            // }
+            // function setNextTarget() {
+            //     startAngle = currentAngle;
+            //     const minDelta = 35; // 最小角度差，单位：度
+            //     let next;
+            //     let tryCount = 0;
+            //     do {
+            //         next = randomTarget();
+            //         tryCount++;
+            //     } while (Math.abs(next - currentAngle) < minDelta && tryCount < 10);
+            //     targetAngle = next;
+            //     animDuration = randomAnim();
+            //     animStartTime = Date.now();
+            //     isStaying = false;
+            //     console.log('新目标角度:', targetAngle); // 输出每次设定的角度
+            // }
+            // setNextTarget();
+            // let animationFrameId: number;
+            // const animate = () => {
+            //     const now = Date.now();
+            //     if (!isStaying) {
+            //         const t = Math.min((now - animStartTime) / animDuration, 1);
+            //         const progress = easeInOut(t);
+            //         currentAngle = startAngle + (targetAngle - startAngle) * progress;
+            //         if (t >= 1) {
+            //             isStaying = true;
+            //             animStartTime = now;
+            //             stayDuration = randomStay();
+            //         }
+            //     } else {
+            //         // 停留阶段
+            //         if (now - animStartTime > stayDuration) {
+            //             setNextTarget();
+            //         }
+            //     }
+            //     // 设置头部和身体参数
+            //     (model.internalModel.coreModel as any).setParameterValueById('ParamAngleX', 0);
+            //     (model.internalModel.coreModel as any).setParameterValueById('ParamAngleY', 0);
+            //     (model.internalModel.coreModel as any).setParameterValueById('ParamAngleZ', currentAngle);
+            //     (model.internalModel.coreModel as any).setParameterValueById('ParamBodyAngleX', currentAngle * 0.3);
+            //     (model.internalModel.coreModel as any).setParameterValueById('ParamBodyAngleZ', currentAngle);
+            //     animationFrameId = requestAnimationFrame(animate);
+            // };
+            // animate();
+            // // 清理事件
+            // const cleanup = () => {
+            //     cancelAnimationFrame(animationFrameId);
+            //     app.destroy(true, {children: true, texture: true, baseTexture: true});
+            // };
+            // props.onLoad?.()
+            // return cleanup;
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            //@ts-expect-error
-        }).catch((error: never) => {
+        }).catch((error: any) => {
             console.error("Failed to load Live2D model", error);
         });
 
