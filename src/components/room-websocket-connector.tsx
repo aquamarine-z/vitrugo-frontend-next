@@ -40,85 +40,24 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
             // 直接使用 ws 地址，不拼接 token
             const wsUrl = `ws://127.0.0.1:8081/ws`;
             const websocket = new WebSocket(wsUrl);
-            websocket.binaryType = 'arraybuffer';
             websocket.onopen = () => {
                 console.log('WebSocket 连接已建立');
                 setRoomState(prev => ({ ...prev, isConnected: true }));
                 reconnectAttempts = 0;
             };
             websocket.onmessage = (event) => {
-                // 处理二进制数据（MP3）
-                if (event.data instanceof ArrayBuffer) {
-                    console.log('收到音频数据');
-                    playAudio(event.data);
-                    return;
-                }
-                console.log('收到消息:', event.data);
-                try {
-                    const data = JSON.parse(event.data);
-                    if (data.type === 'interrupt' || data.content === 'interrupt') {
-                        console.log('将interrupt改为true');
-                        //setInterrupted(true);
-                        props.live2dApi?.setApi?.(prev => {
-                            return {...prev, interrupted: true}
-                        })
-                        return;
-                    }
-                    // 如果是结束消息（空content和包含finish_reason），则不处理
-                    if (data.content === '' && data.response_meta?.finish_reason) {
-                        // 当收到结束消息时，启动8秒计时器
-                        if (data.response_meta?.finish_reason === 'stop') {
-                            //const currentSubtitle = subtitle; // 保存当前的完整回复
-                            const currentSubtitle = currentSubtitleRef.current;
-
-                            console.log('完整的回复是', currentSubtitle);
-                            const newMessage = {
-                                content: currentSubtitle,
-                                type: "assistant",
-                                name: "AI"
-                            } as ChatMessage
-                            setChatStore(prev => {
-                                return {
-                                    ...prev,
-                                    messages: [...prev.messages, newMessage]
-                                }
-                            })
-                            currentSubtitleRef.current = ""
-                            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                            // @ts-expect-error
-                            subtitleTimeoutRef.current = setTimeout(() => {
-
-                                // 将完整回复添加到聊天历史
-                                setRoomState(prev => {
-                                    return {
-                                        ...prev,
-                                        subtitle: "",
-                                        subtitleVisible: false
-                                    }
-                                })
-                            }, 8000); // 改为8秒
+                if (typeof event.data === 'string') {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (msg.audio) {
+                            // TTSMessage: 解码并入队
+                            enqueueAudio(msg.audio as string);
+                            return;
                         }
-                        return;
+                        // ...existing non-audio 消息处理...
+                    } catch (e) {
+                        console.error('解析消息失败:', e);
                     }
-
-                    // 只提取content内容
-                    const response = data.content || '';
-
-                    // 更新字幕，但不重置之前的内容
-                    setRoomState(prev => {
-                        return {
-                            ...prev,
-                            subtitle: prev.subtitle + response,
-                            subtitleVisible: true
-                        }
-                    });
-                    currentSubtitleRef.current += response
-                    // 清除之前的定时器（如果存在）
-                    if (subtitleTimeoutRef.current) {
-                        clearTimeout(subtitleTimeoutRef.current);
-                    }
-                } catch (error) {
-                    console.error('解析消息失败:', error);
                 }
             };
             websocket.onerror = (error) => {
@@ -155,28 +94,32 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 5;
 
-    // playAudio 函数提升到组件作用域
-    const playAudio = async (arrayBuffer: ArrayBuffer) => {
+    // 简易音频队列及播放指针
+    const audioQueueRef = useRef<ArrayBuffer[]>([]);
+    const isPlayingRef = useRef(false);
+
+    // 顺序播放队列中的音频
+    const processQueue = async () => {
+        if (isPlayingRef.current || audioQueueRef.current.length === 0) return;
+        isPlayingRef.current = true;
+        const buffer = audioQueueRef.current.shift()!;
         try {
-            console.log('收到音频数据，大小:', arrayBuffer.byteLength);
-            const blob = new Blob([arrayBuffer], {type: 'audio/mp3'});
-            const audioUrl = URL.createObjectURL(blob);
-            const audio = new Audio(audioUrl);
-            await new Promise((resolve, reject) => {
-                audio.oncanplaythrough = resolve;
-                audio.onerror = reject;
-                audio.load();
-            });
-            console.log('音频数据加载成功，开始播放');
-            if (!props.live2dApi?.playAudio) {
-                console.error('Live2D ref 未初始化');
-                return;
-            }
-            await props.live2dApi?.playAudio?.(arrayBuffer)
-            URL.revokeObjectURL(audioUrl);
-        } catch (error) {
-            console.error('音频播放失败:', error);
+            await props.live2dApi?.playAudio?.(buffer);
+        } catch (e) {
+            console.error('Audio play failed', e);
         }
+        isPlayingRef.current = false;
+        processQueue();
+    };
+
+    // 从后端 JSON 消息中解码音频并入队
+    const enqueueAudio = (base64: string) => {
+        const binary = atob(base64);
+        const len = binary.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+        audioQueueRef.current.push(bytes.buffer);
+        processQueue();
     };
 
     useEffect(() => {
