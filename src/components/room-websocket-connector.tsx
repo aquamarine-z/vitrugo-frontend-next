@@ -19,6 +19,8 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     const currentSubtitleRef = useRef("")
     const reconnectTimeoutRef = useRef<number>(null)
     const [, setChatStore] = useAtom(ChatStore)
+    // map to track message index by MessageID
+    const messageIndexMapRef = useRef<Record<string, number>>({});
 
     // 连接/断开逻辑
     const handleConnect = () => {
@@ -49,12 +51,35 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                 if (typeof event.data === 'string') {
                     try {
                         const msg = JSON.parse(event.data);
+                        // handle audio
                         if (msg.audio) {
-                            // TTSMessage: 解码并入队
                             enqueueAudio(msg.audio as string);
-                            return;
                         }
-                        // ...existing non-audio 消息处理...
+                        // handle text messages
+                        if (msg.text) {
+                            // EOF signal: refresh conversation list
+                            if (msg.text === 'EOF') {
+                                window.dispatchEvent(new CustomEvent('refreshConversations'));
+                                // reset for next message stream
+                                messageIndexMapRef.current = {};
+                            } else {
+                                const id = String(msg.MessageID ?? msg.messageID ?? msg.msgID);
+                                const sender = msg.sender_name ?? msg.SenderName ?? 'assistant';
+                                setChatStore(prev => {
+                                    const msgs = [...prev.messages];
+                                    const map = messageIndexMapRef.current;
+                                    if (map[id] !== undefined) {
+                                        // append content for streaming
+                                        msgs[map[id]].content += msg.text;
+                                    } else {
+                                        // add new assistant message
+                                        map[id] = msgs.length;
+                                        msgs.push({ content: msg.text, name: sender, type: 'assistant' });
+                                    }
+                                    return { messages: msgs };
+                                });
+                            }
+                        }
                     } catch (e) {
                         console.error('解析消息失败:', e);
                     }
@@ -112,7 +137,7 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
         processQueue();
     };
 
-    // 从后端 JSON 消息中解码音频并入队
+    // 从后端 JSON 消消息中解码音频并入队
     const enqueueAudio = (base64: string) => {
         const binary = atob(base64);
         const len = binary.length;
