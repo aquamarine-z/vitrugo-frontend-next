@@ -1,5 +1,5 @@
 import {Live2dViewerApi} from "@/components/live2d-viewer/live2d-viewer";
-import {useEffect, useRef} from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {useAtom} from "jotai";
 import {RoomStateStore} from "@/store/room-state-store";
 import {ChatMessage, ChatStore} from "@/store/chat-message-store";
@@ -147,6 +147,52 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
         processQueue();
     };
 
+    // 新增：设置弹窗tab与live2d相关状态
+    const [settingsTab, setSettingsTab] = useState<'main' | 'live2d'>('main');
+    const [live2dModels, setLive2dModels] = useState<any>(null);
+    const [live2dLoading, setLive2dLoading] = useState(false);
+    const [live2dError, setLive2dError] = useState<string | null>(null);
+    const [live2dEnabled, setLive2dEnabled] = useState<{[k:string]: boolean}>(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                return JSON.parse(localStorage.getItem('live2dEnabled') || '{}');
+            } catch { return {}; }
+        }
+        return {};
+    });
+
+    // 拉取live2d模型配置
+    const fetchLive2dSetting = async () => {
+        setLive2dLoading(true);
+        setLive2dError(null);
+        try {
+            const res = await fetch('http://127.0.0.1:8081/setting', { credentials: 'include' });
+            if (!res.ok) throw new Error('网络错误');
+            const data = await res.json();
+            setLive2dModels(data.Models || {});
+        } catch (e: any) {
+            setLive2dError(e.message || '获取失败');
+        } finally {
+            setLive2dLoading(false);
+        }
+    };
+
+    // 切换tab时拉取
+    useEffect(() => {
+        if (settingsTab === 'live2d' && live2dModels == null && !live2dLoading) {
+            fetchLive2dSetting();
+        }
+    }, [settingsTab]);
+
+    // 启用/关闭模型
+    const toggleLive2d = (role: string) => {
+        setLive2dEnabled(prev => {
+            const next = { ...prev, [role]: !prev[role] };
+            localStorage.setItem('live2dEnabled', JSON.stringify(next));
+            return next;
+        });
+    };
+
     useEffect(() => {
         return () => {
             if (roomState.websocket) {
@@ -200,9 +246,37 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                     <Button variant="ghost" size="icon" style={{ position: 'absolute', top: 12, right: 12 }} onClick={() => props.setSettingsOpen(false)} aria-label="关闭设置">
                         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
                     </Button>
-                    <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>设置</div>
-                    {/* 此处可添加其它设置项 */}
-                    <div style={{ flex: 1 }} />
+                    <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+                        <Button variant={settingsTab === 'main' ? 'default' : 'ghost'} onClick={() => setSettingsTab('main')}>常规</Button>
+                        <Button variant={settingsTab === 'live2d' ? 'default' : 'ghost'} onClick={() => setSettingsTab('live2d')}>live2d</Button>
+                    </div>
+                    {settingsTab === 'main' && (
+                        <>
+                            <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>设置</div>
+                            {/* 此处可添加其它设置项 */}
+                            <div style={{ flex: 1 }} />
+                        </>
+                    )}
+                    {settingsTab === 'live2d' && (
+                        <div style={{ minHeight: 200 }}>
+                            <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>Live2D模型管理</div>
+                            {live2dLoading && <div>加载中...</div>}
+                            {live2dError && <div style={{ color: 'red' }}>{live2dError}</div>}
+                            {live2dModels && Object.keys(live2dModels).length === 0 && <div>暂无模型</div>}
+                            {live2dModels && Object.entries(live2dModels).map(([role, info]: any) => (
+                                <div key={role} style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12, padding: 12, borderRadius: 8, background: '#f7f7fa' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 500 }}>{role}</div>
+                                        <div style={{ fontSize: 13, color: '#888' }}>{info.ModelInfo?.Persona || ''}</div>
+                                        <div style={{ fontSize: 12, color: '#aaa' }}>{info.ModelInfo?.Live2dModel ? `Live2D: ${info.ModelInfo.Live2dModel}` : '无Live2D模型'}</div>
+                                    </div>
+                                    <Button variant={live2dEnabled[role] ? 'default' : 'outline'} onClick={() => toggleLive2d(role)}>
+                                        {live2dEnabled[role] ? '已启用' : '启用'}
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </>
         )}
