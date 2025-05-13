@@ -62,6 +62,13 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
         }
     }, [canvasRef.current]);
 
+    // 以900x700为基准，动态计算缩放比例，canvas铺满屏幕
+    const baseWidth = 900;
+    const baseHeight = 700;
+    const viewerWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+    const viewerHeight = typeof window !== 'undefined' ? window.innerHeight : 900;
+    const scaleRatio = Math.min(viewerWidth / baseWidth, viewerHeight / baseHeight);
+
     // 初始化 PIXI 应用和加载所有模型
     useEffect(() => {
         if (!canvasReady || !canvasRef.current || !modelInfos.length) return;
@@ -72,8 +79,8 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
         audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
         const app = new PIXI.Application({
             view: canvasRef.current,
-            width: 900,
-            height: 700,
+            width: viewerWidth,
+            height: viewerHeight,
             backgroundAlpha: 0,
             antialias: true,
             autoStart: true,
@@ -83,12 +90,12 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
         // 加载所有模型
         Promise.all(modelInfos.map((info, idx) =>
             Live2DModel.from(info.model).then(model => {
-                // 初始坐标分散
-                const x = 200 + idx * 250;
-                const y = 350;
-                model.x = x;
-                model.y = y;
-                model.scale.set(0.09);
+                // 原始坐标和缩放，始终等比例居中
+                const baseX = 200 + idx * 250;
+                const baseY = 350;
+                model.x = baseX * scaleRatio + (viewerWidth - baseWidth * scaleRatio) / 2;
+                model.y = baseY * scaleRatio + (viewerHeight - baseHeight * scaleRatio) / 2;
+                model.scale.set(0.09 * scaleRatio);
                 model.anchor.set(0.5, 0.5);
                 // 拖拽事件
                 model.interactive = true;
@@ -117,7 +124,7 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
                     motionSync.loadDefaultMotionSync();
                 } catch {}
                 app.stage.addChild(model);
-                return {model, name: info.name, x, y, dragging: false, offsetX: 0, offsetY: 0, motionSync};
+                return {model, name: info.name, x: model.x, y: model.y, dragging: false, offsetX: 0, offsetY: 0, motionSync};
             })
         )).then(loadedModels => {
             setModels(loadedModels);
@@ -126,7 +133,7 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
             app.destroy(true, {children: true, texture: true, baseTexture: true});
             appRef.current = null;
         };
-    }, [canvasReady, modelInfos]);
+    }, [canvasReady, modelInfos, viewerWidth, viewerHeight]);
 
     // 音频播放逻辑（只对第一个模型做同步）
     useEffect(() => {
@@ -180,27 +187,28 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
     }, [api.interrupted, models]);
 
     return (
-        <div style={{width: 900, height: 700, position: 'relative'}}>
+        <div style={{width: '100vw', height: '100vh', position: 'relative', border: '2px solid #bbb', borderRadius: 16, background: '#222', boxSizing: 'border-box', overflow: 'hidden'}}>
             {error && <div style={{color: 'red', position: 'absolute', zIndex: 10}}>{error}</div>}
             <canvas
                 ref={canvasRef}
-                width={900}
-                height={700}
+                width={viewerWidth}
+                height={viewerHeight}
                 className="block w-full h-full"
-                style={{background: 'transparent'}}
+                style={{background: 'transparent', borderRadius: 16, width: '100vw', height: '100vh', display: 'block'}}
             />
             {/* 可选：模型名标签 */}
             {models.map((m, idx) => (
                 <div key={idx} style={{
                     position: 'absolute',
-                    left: m.model.x - 50,
-                    top: m.model.y + 180,
-                    width: 100,
+                    left: m.model.x - 50 * scaleRatio,
+                    top: m.model.y + 180 * scaleRatio,
+                    width: 100 * scaleRatio,
                     textAlign: 'center',
                     color: '#fff',
                     textShadow: '0 0 4px #000',
                     pointerEvents: 'none',
                     fontWeight: 'bold',
+                    fontSize: 18 * scaleRatio
                 }}>{m.name}</div>
             ))}
         </div>
