@@ -65,9 +65,26 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
     // 以900x700为基准，动态计算缩放比例，canvas铺满屏幕
     const baseWidth = 900;
     const baseHeight = 700;
-    const viewerWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
-    const viewerHeight = typeof window !== 'undefined' ? window.innerHeight : 900;
+    const [viewerSize, setViewerSize] = useState({ width: 1920, height: 900 });
+    const viewerWidth = viewerSize.width;
+    const viewerHeight = viewerSize.height;
     const scaleRatio = Math.min(viewerWidth / baseWidth, viewerHeight / baseHeight);
+
+    // 监听窗口resize，动态调整canvas和PIXI应用尺寸
+    useEffect(() => {
+        const handleResize = () => {
+            setViewerSize({
+                width: window.innerWidth,
+                height: window.innerHeight
+            });
+            if (appRef.current) {
+                appRef.current.renderer.resize(window.innerWidth, window.innerHeight);
+            }
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // 初始化 PIXI 应用和加载所有模型
     useEffect(() => {
@@ -194,7 +211,7 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
                 width={viewerWidth}
                 height={viewerHeight}
                 className="block w-full h-full"
-                style={{background: 'transparent', borderRadius: 16, width: '100vw', height: '100vh', display: 'block'}}
+                style={{background: 'transparent', borderRadius: 16, width: '100vw', height: '100vh', display: 'block', position: 'absolute', left: 0, top: 0}}
             />
             {/* 可选：模型名标签 */}
             {models.map((m, idx) => (
