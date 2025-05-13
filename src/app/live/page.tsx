@@ -2,7 +2,6 @@
 import {ResizableHandle, ResizablePanel, ResizablePanelGroup} from "@/components/ui/resizable";
 import {ChatBox} from "@/components/chat-box/chat-box";
 import {Toaster} from "@/components/ui/sonner";
-import {Draggable} from "@/components/draggable";
 import Script from "next/script";
 
 import {useEffect, useState} from "react";
@@ -57,9 +56,7 @@ export default function LivePage() {
                                 <div className={"absolute left-0 top-0 right-0 bottom-0 bg-black"}/>
                                 <div
                                     className={"relative bg-transparent w-full h-full left-0 top-0 bottom-0 right-0 overflow-hidden"}>
-                                    <Draggable>
-                                        <Live2dViewer api={live2dApi}/>
-                                    </Draggable>
+                                    <Live2dViewer api={live2dApi}/>
                                 </div>
                                 <Toaster/>
                                 <Subtitle/>
