@@ -70,6 +70,15 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
     const viewerHeight = viewerSize.height;
     const scaleRatio = Math.min(viewerWidth / baseWidth, viewerHeight / baseHeight);
 
+    // 读取本地模型缩放比例
+    const getModelScale = (name: string) => {
+        if (typeof window === 'undefined') return 1;
+        try {
+            const scaleMap = JSON.parse(localStorage.getItem('live2dScale') || '{}');
+            return typeof scaleMap[name] === 'number' ? scaleMap[name] : 1;
+        } catch { return 1; }
+    };
+
     // 监听窗口resize，动态调整canvas和PIXI应用尺寸
     useEffect(() => {
         const handleResize = () => {
@@ -112,7 +121,8 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
                 const baseY = 350;
                 model.x = baseX * scaleRatio + (viewerWidth - baseWidth * scaleRatio) / 2;
                 model.y = baseY * scaleRatio + (viewerHeight - baseHeight * scaleRatio) / 2;
-                model.scale.set(0.09 * scaleRatio);
+                const userScale = getModelScale(info.name);
+                model.scale.set(0.09 * scaleRatio * userScale);
                 model.anchor.set(0.5, 0.5);
                 // 拖拽事件
                 model.interactive = true;

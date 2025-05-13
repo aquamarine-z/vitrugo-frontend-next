@@ -160,6 +160,30 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
         }
         return {};
     });
+    // 新增：live2d模型缩放比例
+    const [live2dScale, setLive2dScale] = useState<{[k:string]: number}>(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                return JSON.parse(localStorage.getItem('live2dScale') || '{}');
+            } catch { return {}; }
+        }
+        return {};
+    });
+    const handleScaleChange = (role: string, value: number) => {
+        setLive2dScale(prev => {
+            const next = { ...prev, [role]: value };
+            localStorage.setItem('live2dScale', JSON.stringify(next));
+            return next;
+        });
+    };
+    // 新增：模型大小栏位（直接读取live2d-models.json）
+    const [modelSizeList, setModelSizeList] = useState<{name: string, model: string}[]>([]);
+    useEffect(() => {
+        fetch('/live2d-models.json')
+            .then(res => res.json())
+            .then((data) => setModelSizeList(data))
+            .catch(() => setModelSizeList([]));
+    }, []);
 
     // 拉取live2d模型配置
     const fetchLive2dSetting = async () => {
@@ -255,6 +279,25 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                             <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>设置</div>
                             {/* 此处可添加其它设置项 */}
                             <div style={{ flex: 1 }} />
+                            <div style={{marginTop: 24, padding: 16, borderRadius: 12, background: '#f7f7fa'}}>
+                                <div style={{fontWeight: 600, fontSize: 16, marginBottom: 12}}>模型大小</div>
+                                {modelSizeList.length === 0 && <div style={{color:'#888'}}>暂无模型配置</div>}
+                                {modelSizeList.map(info => (
+                                    <div key={info.name} style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
+                                        <span style={{minWidth: 80, fontWeight: 500}}>{info.name}</span>
+                                        <input
+                                            type="range"
+                                            min={0.2}
+                                            max={2}
+                                            step={0.01}
+                                            value={live2dScale[info.name] ?? 1}
+                                            onChange={e => handleScaleChange(info.name, parseFloat(e.target.value))}
+                                            style={{flex: 1, accentColor: '#888'}}
+                                        />
+                                        <span style={{width: 40, textAlign: 'right', fontSize: 13}}>{(live2dScale[info.name] ?? 1).toFixed(2)}x</span>
+                                    </div>
+                                ))}
+                            </div>
                         </>
                     )}
                     {settingsTab === 'live2d' && (
@@ -264,15 +307,17 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                             {live2dError && <div style={{ color: 'red' }}>{live2dError}</div>}
                             {live2dModels && Object.keys(live2dModels).length === 0 && <div>暂无模型</div>}
                             {live2dModels && Object.entries(live2dModels).map(([role, info]: any) => (
-                                <div key={role} style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12, padding: 12, borderRadius: 8, background: '#f7f7fa' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 500 }}>{role}</div>
-                                        <div style={{ fontSize: 13, color: '#888' }}>{info.ModelInfo?.Persona || ''}</div>
-                                        <div style={{ fontSize: 12, color: '#aaa' }}>{info.ModelInfo?.Live2dModel ? `Live2D: ${info.ModelInfo.Live2dModel}` : '无Live2D模型'}</div>
+                                <div key={role} style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12, padding: 12, borderRadius: 8, background: '#f7f7fa', flexDirection: 'column', alignItems: 'stretch' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontWeight: 500 }}>{role}</div>
+                                            <div style={{ fontSize: 13, color: '#888' }}>{info.ModelInfo?.Persona || ''}</div>
+                                            <div style={{ fontSize: 12, color: '#aaa' }}>{info.ModelInfo?.Live2dModel ? `Live2D: ${info.ModelInfo.Live2dModel}` : '无Live2D模型'}</div>
+                                        </div>
+                                        <Button variant={live2dEnabled[role] ? 'default' : 'outline'} onClick={() => toggleLive2d(role)}>
+                                            {live2dEnabled[role] ? '已启用' : '启用'}
+                                        </Button>
                                     </div>
-                                    <Button variant={live2dEnabled[role] ? 'default' : 'outline'} onClick={() => toggleLive2d(role)}>
-                                        {live2dEnabled[role] ? '已启用' : '启用'}
-                                    </Button>
                                 </div>
                             ))}
                         </div>
