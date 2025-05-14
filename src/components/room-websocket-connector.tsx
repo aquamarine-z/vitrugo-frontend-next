@@ -22,6 +22,9 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     // map to track message index by MessageID
     const messageIndexMapRef = useRef<Record<string, number>>({});
 
+    // 记录每个角色的加入状态（pending/success/failed）
+    const [joinStatus, setJoinStatus] = useState<{[k:string]: 'pending'|'success'|'failed'|undefined}>({});
+
     // 连接/断开逻辑
     const handleConnect = () => {
         connectWebSocket();
@@ -39,18 +42,32 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
             if (roomState.websocket?.readyState === WebSocket.OPEN) {
                 return;
             }
-            // 直接使用 ws 地址，不拼接 token
             const wsUrl = `ws://127.0.0.1:8081/ws`;
             const websocket = new WebSocket(wsUrl);
             websocket.onopen = () => {
                 console.log('WebSocket 连接已建立');
                 setRoomState(prev => ({ ...prev, isConnected: true }));
                 reconnectAttempts = 0;
+                // 建立连接后，自动发送所有已加入聊天的角色 join 请求
+                const enabled = JSON.parse(localStorage.getItem('live2dEnabled') || '{}');
+                Object.entries(enabled).forEach(([role, enabled]) => {
+                    if (enabled) {
+                        websocket.send(JSON.stringify({ type: 'join', role_name: role }));
+                        setJoinStatus(prev => ({...prev, [role]: 'pending'}));
+                    }
+                });
             };
             websocket.onmessage = (event) => {
                 if (typeof event.data === 'string') {
                     try {
                         const msg = JSON.parse(event.data);
+                        // 处理加入/退出响应
+                        if ((msg.type === 'success' || msg.type === 'error') && msg.role_name) {
+                            setJoinStatus(prev => ({
+                                ...prev,
+                                [msg.role_name]: msg.type === 'success' ? 'success' : 'failed'
+                            }));
+                        }
                         // handle audio
                         if (msg.audio) {
                             enqueueAudio(msg.audio as string);
@@ -102,12 +119,13 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                         isConnected: false,
                     }
                 })
-                if (reconnectAttempts < maxReconnectAttempts) {
-                    reconnectAttempts++;
-                    console.log(`尝试第 ${reconnectAttempts} 次重连...`);
-                    reconnectTimeoutRef.current = setTimeout(connectWebSocket, 3000) as unknown as number;
-                } else {
-                }
+                // 取消自动重连逻辑
+                // if (reconnectAttempts < maxReconnectAttempts) {
+                //     reconnectAttempts++;
+                //     console.log(`尝试第 ${reconnectAttempts} 次重连...`);
+                //     reconnectTimeoutRef.current = setTimeout(connectWebSocket, 3000) as unknown as number;
+                // } else {
+                // }
             };
             setRoomState(prev => ({ ...prev, websocket: websocket }));
         } catch (error) {
@@ -148,7 +166,7 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     };
 
     // 新增：设置弹窗tab与live2d相关状态
-    const [settingsTab, setSettingsTab] = useState<'main' | 'live2d'>('main');
+    const [settingsTab, setSettingsTab] = useState<'main' | 'chat'>('main');
     const [live2dModels, setLive2dModels] = useState<any>(null);
     const [live2dLoading, setLive2dLoading] = useState(false);
     const [live2dError, setLive2dError] = useState<string | null>(null);
@@ -203,7 +221,7 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
 
     // 切换tab时拉取
     useEffect(() => {
-        if (settingsTab === 'live2d' && live2dModels == null && !live2dLoading) {
+        if (settingsTab === 'chat' && live2dModels == null && !live2dLoading) {
             fetchLive2dSetting();
         }
     }, [settingsTab]);
@@ -215,6 +233,23 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
             localStorage.setItem('live2dEnabled', JSON.stringify(next));
             return next;
         });
+    };
+
+    // 聊天管理tab按钮点击处理
+    const handleToggleJoin = (role: string) => {
+        if (!roomState.websocket || roomState.websocket.readyState !== WebSocket.OPEN) return;
+        const enabled = !!live2dEnabled[role];
+        if (enabled) {
+            // 退出
+            roomState.websocket.send(JSON.stringify({ type: 'exit', role_name: role }));
+            setJoinStatus(prev => ({...prev, [role]: 'pending'}));
+        } else {
+            // 加入
+            roomState.websocket.send(JSON.stringify({ type: 'join', role_name: role }));
+            setJoinStatus(prev => ({...prev, [role]: 'pending'}));
+        }
+        // 立即切换本地按钮状态
+        toggleLive2d(role);
     };
 
     useEffect(() => {
@@ -272,7 +307,7 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                     </Button>
                     <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
                         <Button variant={settingsTab === 'main' ? 'default' : 'ghost'} onClick={() => setSettingsTab('main')}>常规</Button>
-                        <Button variant={settingsTab === 'live2d' ? 'default' : 'ghost'} onClick={() => setSettingsTab('live2d')}>live2d</Button>
+                        <Button variant={settingsTab === 'chat' ? 'default' : 'ghost'} onClick={() => setSettingsTab('chat')}>聊天管理</Button>
                     </div>
                     {settingsTab === 'main' && (
                         <>
@@ -300,24 +335,24 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                             </div>
                         </>
                     )}
-                    {settingsTab === 'live2d' && (
+                    {settingsTab === 'chat' && (
                         <div style={{ minHeight: 200 }}>
-                            <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>Live2D模型管理</div>
-                            {live2dLoading && <div>加载中...</div>}
-                            {live2dError && <div style={{ color: 'red' }}>{live2dError}</div>}
-                            {live2dModels && Object.keys(live2dModels).length === 0 && <div>暂无模型</div>}
-                            {live2dModels && Object.entries(live2dModels).map(([role, info]: any) => (
-                                <div key={role} style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12, padding: 12, borderRadius: 8, background: '#f7f7fa', flexDirection: 'column', alignItems: 'stretch' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ fontWeight: 500 }}>{role}</div>
-                                            <div style={{ fontSize: 13, color: '#888' }}>{info.ModelInfo?.Persona || ''}</div>
-                                            <div style={{ fontSize: 12, color: '#aaa' }}>{info.ModelInfo?.Live2dModel ? `Live2D: ${info.ModelInfo.Live2dModel}` : '无Live2D模型'}</div>
-                                        </div>
-                                        <Button variant={live2dEnabled[role] ? 'default' : 'outline'} onClick={() => toggleLive2d(role)}>
-                                            {live2dEnabled[role] ? '已启用' : '启用'}
-                                        </Button>
-                                    </div>
+                            <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>聊天管理</div>
+                            {modelSizeList.length === 0 && <div style={{color:'#888'}}>暂无模型配置</div>}
+                            {modelSizeList.map(info => (
+                                <div key={info.name} style={{display:'flex',alignItems:'center',gap:12,marginBottom:10,padding:12,borderRadius:8,background:'#f7f7fa'}}>
+                                    <span style={{minWidth: 80, fontWeight: 500}}>{info.name}</span>
+                                    <Button
+                                        variant={live2dEnabled[info.name] ? 'default' : 'outline'}
+                                        onClick={() => handleToggleJoin(info.name)}
+                                        disabled={joinStatus[info.name] === 'pending'}
+                                    >
+                                        {joinStatus[info.name] === 'pending' && '处理中...'}
+                                        {joinStatus[info.name] === 'success' && live2dEnabled[info.name] && '已加入聊天'}
+                                        {joinStatus[info.name] === 'success' && !live2dEnabled[info.name] && '加入聊天'}
+                                        {joinStatus[info.name] === 'failed' && '失败，重试'}
+                                        {joinStatus[info.name] === undefined && (live2dEnabled[info.name] ? '已加入聊天' : '加入聊天')}
+                                    </Button>
                                 </div>
                             ))}
                         </div>
