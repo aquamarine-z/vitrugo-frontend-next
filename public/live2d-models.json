@@ -1,0 +1,14 @@
+[
+  {
+    "name": "小爱",
+    "model": "mao_pro_zh/runtime/mao_pro.model3.json"
+  },
+  {
+    "name": "日和",
+    "model": "hiyori_pro_zh/runtime/hiyori_pro_t11.model3.json"
+  },
+  {
+    "name": "小鲸",
+    "model": "ariu/ariu.model3.json"
+  }
+]
