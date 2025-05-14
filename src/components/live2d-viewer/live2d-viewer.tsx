@@ -79,22 +79,6 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
         } catch { return 1; }
     };
 
-    // 监听窗口resize，动态调整canvas和PIXI应用尺寸
-    useEffect(() => {
-        const handleResize = () => {
-            setViewerSize({
-                width: window.innerWidth,
-                height: window.innerHeight
-            });
-            if (appRef.current) {
-                appRef.current.renderer.resize(window.innerWidth, window.innerHeight);
-            }
-        };
-        handleResize();
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
-
     // 初始化 PIXI 应用和加载所有模型
     useEffect(() => {
         if (!canvasReady || !canvasRef.current || !modelInfos.length) return;
