@@ -68,9 +68,46 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                                 [msg.role_name]: msg.type === 'success' ? 'success' : 'failed'
                             }));
                         }
+                        
+                        // 处理 Go 结构体 TTSMessage
+                        // type TTSMessage struct {
+                        //   Index      int32  `json:"index"`
+                        //   MessageID  int64  `json:"message_id"`
+                        //   Text       string `json:"text"`
+                        //   SenderName string `json:"sender_name"`
+                        //   Audio      []byte `json:"audio"`
+                        // }
+                        if (msg.message_id !== undefined && msg.sender_name && msg.audio) {
+                            // 是TTSMessage结构，提取发送者名称和音频
+                            const sender_name = msg.sender_name;
+                            enqueueAudio(msg.audio as string, sender_name);
+                            
+                            // 如果有文本，也需要处理
+                            if (msg.text) {
+                                const id = String(msg.message_id);
+                                setChatStore(prev => {
+                                    const msgs = [...prev.messages];
+                                    const map = messageIndexMapRef.current;
+                                    if (map[id] !== undefined) {
+                                        // append content for streaming
+                                        msgs[map[id]].content += msg.text;
+                                    } else {
+                                        // add new assistant message
+                                        map[id] = msgs.length;
+                                        msgs.push({ content: msg.text, name: sender_name, type: 'assistant' });
+                                    }
+                                    return { messages: msgs };
+                                });
+                            }
+                            return; // 已处理，不再继续
+                        }
+                        
+                        // 处理传统消息格式
                         // handle audio
                         if (msg.audio) {
-                            enqueueAudio(msg.audio as string);
+                            // 获取发送者名字，兼容多种字段名
+                            const sender_name = msg.sender_name ?? msg.SenderName ?? 'assistant';
+                            enqueueAudio(msg.audio as string, sender_name);
                         }
                         // handle text messages
                         if (msg.text) {
@@ -138,16 +175,16 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     const maxReconnectAttempts = 5;
 
     // 简易音频队列及播放指针
-    const audioQueueRef = useRef<ArrayBuffer[]>([]);
+    const audioQueueRef = useRef<{buffer: ArrayBuffer, sender_name: string}[]>([]);
     const isPlayingRef = useRef(false);
 
     // 顺序播放队列中的音频
     const processQueue = async () => {
         if (isPlayingRef.current || audioQueueRef.current.length === 0) return;
         isPlayingRef.current = true;
-        const buffer = audioQueueRef.current.shift()!;
+        const queueItem = audioQueueRef.current.shift()!;
         try {
-            await props.live2dApi?.playAudio?.(buffer);
+            await props.live2dApi?.playAudio?.(queueItem.buffer, queueItem.sender_name);
         } catch (e) {
             console.error('Audio play failed', e);
         }
@@ -156,12 +193,12 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     };
 
     // 从后端 JSON 消消息中解码音频并入队
-    const enqueueAudio = (base64: string) => {
+    const enqueueAudio = (base64: string, sender_name: string = 'default') => {
         const binary = atob(base64);
         const len = binary.length;
         const bytes = new Uint8Array(len);
         for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-        audioQueueRef.current.push(bytes.buffer);
+        audioQueueRef.current.push({buffer: bytes.buffer, sender_name});
         processQueue();
     };
 

@@ -8,7 +8,7 @@ interface Live2dViewerProps {
     onLoad?: () => void
     api: Live2dViewerApi,
 }
-type AudioPlayerCallback = (buffer: ArrayBuffer) => Promise<void>;
+type AudioPlayerCallback = (buffer: ArrayBuffer, sender_name?: string) => Promise<void>;
 
 export class Live2dViewerApi {
     playAudio?: AudioPlayerCallback;
@@ -32,11 +32,17 @@ interface ModelState {
     motionSync?: MotionSync;
 }
 
+// 定义音频队列项接口
+interface AudioQueueItem {
+    buffer: ArrayBuffer;
+    sender_name: string;
+}
+
 export function Live2dViewer({api, ...props}: Live2dViewerProps) {
     const audioContextRef = useRef<AudioContext | null>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const appRef = useRef<PIXI.Application | null>(null);
-    const [audioQueue, setAudioQueue] = useState<ArrayBuffer[]>([]);
+    const [audioQueue, setAudioQueue] = useState<AudioQueueItem[]>([]);
     const [isPlaying, setIsPlaying] = useState(false);
     const [models, setModels] = useState<ModelState[]>([]);
     const [modelInfos, setModelInfos] = useState<ModelInfo[]>([]);
@@ -146,38 +152,46 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
         };
     }, [canvasReady, modelInfos, viewerWidth, viewerHeight]);
 
-    // 音频播放逻辑（只对第一个模型做同步）
+    // 音频播放逻辑（根据sender_name确定模型）
     useEffect(() => {
         api.setApi?.(prev => ({...prev, playAudio: playAudioWithSync}));
     }, [models]);
 
-    const playAudioWithSync = async (arrayBuffer: ArrayBuffer) => {
-        setAudioQueue(prevQueue => [...prevQueue, arrayBuffer]);
+    const playAudioWithSync = async (arrayBuffer: ArrayBuffer, sender_name: string = 'default') => {
+        setAudioQueue(prevQueue => [...prevQueue, { buffer: arrayBuffer, sender_name }]);
     };
 
     useEffect(() => {
         const playNextAudio = async () => {
             if (isPlaying || audioQueue.length === 0 || !models.length) return;
             setIsPlaying(true);
-            const arrayBuffer = audioQueue[0];
+            const queueItem = audioQueue[0];
             setAudioQueue(prevQueue => prevQueue.slice(1));
             try {
                 const audioContext = audioContextRef.current!;
-                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+                const audioBuffer = await audioContext.decodeAudioData(queueItem.buffer.slice(0));
                 const source = audioContext.createBufferSource();
                 source.buffer = audioBuffer;
                 const destination = audioContext.createMediaStreamDestination();
                 source.connect(destination);
                 source.connect(audioContext.destination);
-                // 只同步第一个模型
-                const firstMotionSync = models[0]?.motionSync;
-                if (firstMotionSync) {
-                    firstMotionSync.play(destination.stream);
+                
+                // 根据sender_name查找对应的模型，如果找不到则使用第一个模型
+                const targetModelIndex = models.findIndex(m => 
+                    m.name.toLowerCase() === queueItem.sender_name.toLowerCase());
+                const targetModel = targetModelIndex >= 0 ? models[targetModelIndex] : models[0];
+                
+                // 使用找到的模型的motionSync
+                const targetMotionSync = targetModel?.motionSync;
+                if (targetMotionSync) {
+                    console.log(`使用模型 ${targetModel.name} 播放 ${queueItem.sender_name} 的语音`);
+                    targetMotionSync.play(destination.stream);
                 }
+                
                 source.start(audioContext.currentTime);
                 await new Promise<void>((resolve) => {
                     source.onended = () => {
-                        firstMotionSync?.reset();
+                        targetMotionSync?.reset();
                         resolve();
                     };
                 });
