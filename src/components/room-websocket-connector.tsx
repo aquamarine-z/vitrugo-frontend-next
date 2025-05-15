@@ -19,6 +19,8 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     const currentSubtitleRef = useRef("")
     const reconnectTimeoutRef = useRef<number>(null)
     const [, setChatStore] = useAtom(ChatStore)
+    // websocketRef始终指向最新的WebSocket对象
+    const websocketRef = useRef<WebSocket | undefined>(undefined);
     // map to track message index by MessageID
     const messageIndexMapRef = useRef<Record<string, number>>({});
 
@@ -32,6 +34,7 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     const handleDisconnect = () => {
         if (roomState.websocket) {
             roomState.websocket.close();
+            websocketRef.current = undefined;
             setRoomState(prev => ({ ...prev, websocket: undefined, isConnected: false }));
         }
     };
@@ -44,6 +47,7 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
             }
             const wsUrl = `ws://127.0.0.1:8081/ws`;
             const websocket = new WebSocket(wsUrl);
+            websocketRef.current = websocket;
             websocket.onopen = () => {
                 console.log('WebSocket 连接已建立');
                 setRoomState(prev => ({ ...prev, isConnected: true }));
@@ -80,25 +84,10 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                         if (msg.message_id !== undefined) {
                             // 处理EOF消息情况 (audio为null，text为EOF)
                             if (msg.text === 'EOF') {
-                                // 发送 play_done
+                                // 不再直接发送play_done，而是将EOF标记入队
                                 let msgID = String(msg.message_id);
                                 console.log('收到EOF消息:', JSON.stringify(msg));
-                                // 直接使用当前的websocket对象，而不是从roomState获取
-                                if (websocket.readyState === WebSocket.OPEN) {
-                                    try {
-                                        const playDoneMsg = { type: 'play_done', content: msgID };
-                                        console.log('发送play_done信号:', JSON.stringify(playDoneMsg));
-                                        websocket.send(JSON.stringify(playDoneMsg));
-                                        console.log('play_done信号已发送');
-                                    } catch (error) {
-                                        console.error('发送play_done信号失败:', error);
-                                    }
-                                } else {
-                                    console.error('无法发送play_done信号，WebSocket未连接，状态:', websocket.readyState);
-                                }
-                                window.dispatchEvent(new CustomEvent('refreshConversations'));
-                                // reset for next message stream
-                                messageIndexMapRef.current = {};
+                                enqueueAudio({eof: true, msgID}, '');
                                 return; // 已处理，不再继续
                             }
                             
@@ -140,29 +129,15 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                         if (msg.text) {
                             // EOF signal: refresh conversation list
                             if (msg.text === 'EOF') {
-                                // 发送 play_done
+                                // 传统格式同样入队EOF标记
                                 let msgID = msg.MessageID ?? msg.messageID ?? msg.msgID ?? msg.message_id;
                                 console.log('传统格式收到EOF消息:', JSON.stringify(msg), '提取的msgID:', msgID);
                                 if (msgID !== undefined && msgID !== null) {
-                                    // 直接使用当前的websocket对象，而不是从roomState获取
-                                    if (websocket.readyState === WebSocket.OPEN) {
-                                        try {
-                                            const playDoneMsg = { type: 'play_done', content: String(msgID) };
-                                            console.log('传统格式发送play_done信号:', JSON.stringify(playDoneMsg));
-                                            websocket.send(JSON.stringify(playDoneMsg));
-                                            console.log('传统格式play_done信号已发送');
-                                        } catch (error) {
-                                            console.error('传统格式发送play_done信号失败:', error);
-                                        }
-                                    } else {
-                                        console.error('传统格式无法发送play_done信号，WebSocket未连接，状态:', websocket.readyState);
-                                    }
+                                    enqueueAudio({eof: true, msgID: String(msgID)}, '');
                                 } else {
-                                    console.error('传统格式无法发送play_done信号，msgID无效:', msgID);
+                                    console.error('传统格式无法入队EOF，msgID无效:', msgID);
                                 }
-                                window.dispatchEvent(new CustomEvent('refreshConversations'));
-                                // reset for next message stream
-                                messageIndexMapRef.current = {};
+                                return;
                             } else {
                                 const id = String(msg.MessageID ?? msg.messageID ?? msg.msgID);
                                 const sender = msg.sender_name ?? msg.SenderName ?? 'assistant';
@@ -222,7 +197,8 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     const maxReconnectAttempts = 5;
 
     // 简易音频队列及播放指针
-    const audioQueueRef = useRef<{buffer: ArrayBuffer, sender_name: string}[]>([]);
+    // 支持普通音频项和EOF标记项
+    const audioQueueRef = useRef<Array<{buffer?: ArrayBuffer, sender_name?: string, eof?: boolean, msgID?: string}>>([]);
     const isPlayingRef = useRef(false);
 
     // 顺序播放队列中的音频
@@ -230,8 +206,31 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
         if (isPlayingRef.current || audioQueueRef.current.length === 0) return;
         isPlayingRef.current = true;
         const queueItem = audioQueueRef.current.shift()!;
+        if (queueItem.eof) {
+            // 播放队列处理到EOF，发送play_done
+            const msgID = queueItem.msgID;
+            const ws = websocketRef.current;
+            if (ws && ws.readyState === WebSocket.OPEN && msgID) {
+                try {
+                    const playDoneMsg = { type: 'play_done', content: String(msgID) };
+                    console.log('音频队列处理到EOF，发送play_done信号:', JSON.stringify(playDoneMsg));
+                    ws.send(JSON.stringify(playDoneMsg));
+                    console.log('play_done信号已发送');
+                } catch (error) {
+                    console.error('发送play_done信号失败:', error);
+                }
+            } else {
+                console.error('无法发送play_done信号，WebSocket未连接或msgID无效');
+            }
+            window.dispatchEvent(new CustomEvent('refreshConversations'));
+            // reset for next message stream
+            messageIndexMapRef.current = {};
+            isPlayingRef.current = false;
+            processQueue();
+            return;
+        }
         try {
-            await props.live2dApi?.playAudio?.(queueItem.buffer, queueItem.sender_name);
+            await props.live2dApi?.playAudio?.(queueItem.buffer!, queueItem.sender_name);
         } catch (e) {
             console.error('Audio play failed', e);
         }
@@ -240,8 +239,14 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     };
 
     // 从后端 JSON 消消息中解码音频并入队
-    const enqueueAudio = (base64: string, sender_name: string = 'default') => {
-        const binary = atob(base64);
+    // 支持普通音频和EOF
+    const enqueueAudio = (base64OrEof: string | {eof: true, msgID: string}, sender_name: string = 'default') => {
+        if (typeof base64OrEof === 'object' && base64OrEof.eof) {
+            audioQueueRef.current.push({ eof: true, msgID: base64OrEof.msgID });
+            processQueue();
+            return;
+        }
+        const binary = atob(base64OrEof as string);
         const len = binary.length;
         const bytes = new Uint8Array(len);
         for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
@@ -340,6 +345,7 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
         return () => {
             if (roomState.websocket) {
                 roomState.websocket.close();
+                websocketRef.current = undefined;
                 setRoomState(prev => ({ ...prev, websocket: undefined, isConnected: false }));
             }
             if (subtitleTimeoutRef.current) {
