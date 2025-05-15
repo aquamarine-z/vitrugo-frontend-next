@@ -23,6 +23,8 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
     // 新增：重命名输入框状态
     const [renameId, setRenameId] = useState<number | null>(null);
     const [renameValue, setRenameValue] = useState('');
+    // 新增：新建会话loading
+    const [creating, setCreating] = useState(false);
 
     useEffect(() => {
         if (!open) return;
@@ -92,6 +94,38 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
         }
         setMenuOpenId(null);
     };
+    // 新建会话方法
+    const handleCreateConversation = async () => {
+        setCreating(true);
+        try {
+            const res = await fetch('http://127.0.0.1:8081/conversation', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            if (res.status === 401) {
+                window.location.href = '/login';
+                return;
+            }
+            // 创建成功后刷新会话列表
+            const data = await res.json();
+            // 重新拉取会话
+            fetch(`http://127.0.0.1:8081/conversation`, { credentials: 'include' })
+                .then(res => res.json())
+                .then(data => {
+                    if (Array.isArray(data.conversations)) {
+                        setConversations((data.conversations as Conversation[]).sort((a: Conversation, b: Conversation) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
+                    } else {
+                        setConversations([]);
+                    }
+                });
+        } catch (e) {
+            alert('新建会话失败');
+        } finally {
+            setCreating(false);
+        }
+    };
 
     return (
         <div
@@ -113,9 +147,14 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
         >
             <div style={{padding: '16px 20px', fontWeight: 600, fontSize: 18, borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
                 <span>会话列表</span>
-                <button onClick={onClose} style={{background: 'none', border: 'none', cursor: 'pointer', padding: 0}} aria-label="关闭">
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
-                </button>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <button onClick={handleCreateConversation} disabled={creating} style={{background: '#4caf50', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 10px', marginRight: 8, cursor: creating ? 'not-allowed' : 'pointer', fontSize: 14}} aria-label="新建会话">
+                        {creating ? '创建中...' : '+ 新建'}
+                    </button>
+                    <button onClick={onClose} style={{background: 'none', border: 'none', cursor: 'pointer', padding: 0}} aria-label="关闭">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>
+                    </button>
+                </div>
             </div>
             <div style={{flex: 1, overflowY: 'auto', padding: 16}}>
                 {loading && <div>加载中...</div>}
