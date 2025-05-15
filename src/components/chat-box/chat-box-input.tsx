@@ -72,6 +72,13 @@ export function ChatBoxInput() {
 
     const handleToggleRecording = async () => {
         if (roomState.isRecording) {
+            // 结束通话，发送 stop_call
+            if (roomState.websocket && roomState.websocket.readyState === WebSocket.OPEN) {
+                roomState.websocket.send(JSON.stringify({
+                    type: 'stop_call',
+                    session_id: roomState.sessionId
+                }));
+            }
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-expect-error
             mediaRecorderRef.current.stop();
@@ -82,6 +89,21 @@ export function ChatBoxInput() {
                 }
             })
         } else {
+            // 开始通话前先检查 sessionId
+            if (!roomState.sessionId) {
+                toast('还没有选择会话哦');
+                return;
+            }
+            // 先发送 start_call
+            if (roomState.websocket && roomState.websocket.readyState === WebSocket.OPEN) {
+                roomState.websocket.send(JSON.stringify({
+                    type: 'start_call',
+                    session_id: roomState.sessionId
+                }));
+            } else {
+                toast('未连接到服务器，请等待重连...');
+                return;
+            }
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({audio: true});
                 const audioContext = new AudioContext({sampleRate: 16000});
