@@ -77,29 +77,56 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                         //   SenderName string `json:"sender_name"`
                         //   Audio      []byte `json:"audio"`
                         // }
-                        if (msg.message_id !== undefined && msg.sender_name && msg.audio) {
-                            // 是TTSMessage结构，提取发送者名称和音频
-                            const sender_name = msg.sender_name;
-                            enqueueAudio(msg.audio as string, sender_name);
-                            
-                            // 如果有文本，也需要处理
-                            if (msg.text) {
-                                const id = String(msg.message_id);
-                                setChatStore(prev => {
-                                    const msgs = [...prev.messages];
-                                    const map = messageIndexMapRef.current;
-                                    if (map[id] !== undefined) {
-                                        // append content for streaming
-                                        msgs[map[id]].content += msg.text;
-                                    } else {
-                                        // add new assistant message
-                                        map[id] = msgs.length;
-                                        msgs.push({ content: msg.text, name: sender_name, type: 'assistant' });
+                        if (msg.message_id !== undefined) {
+                            // 处理EOF消息情况 (audio为null，text为EOF)
+                            if (msg.text === 'EOF') {
+                                // 发送 play_done
+                                let msgID = String(msg.message_id);
+                                console.log('收到EOF消息:', JSON.stringify(msg));
+                                // 直接使用当前的websocket对象，而不是从roomState获取
+                                if (websocket.readyState === WebSocket.OPEN) {
+                                    try {
+                                        const playDoneMsg = { type: 'play_done', content: msgID };
+                                        console.log('发送play_done信号:', JSON.stringify(playDoneMsg));
+                                        websocket.send(JSON.stringify(playDoneMsg));
+                                        console.log('play_done信号已发送');
+                                    } catch (error) {
+                                        console.error('发送play_done信号失败:', error);
                                     }
-                                    return { messages: msgs };
-                                });
+                                } else {
+                                    console.error('无法发送play_done信号，WebSocket未连接，状态:', websocket.readyState);
+                                }
+                                window.dispatchEvent(new CustomEvent('refreshConversations'));
+                                // reset for next message stream
+                                messageIndexMapRef.current = {};
+                                return; // 已处理，不再继续
                             }
-                            return; // 已处理，不再继续
+                            
+                            // 处理普通TTSMessage情况
+                            if (msg.sender_name && msg.audio) {
+                                // 是带音频的TTSMessage结构，提取发送者名称和音频
+                                const sender_name = msg.sender_name;
+                                enqueueAudio(msg.audio as string, sender_name);
+                                
+                                // 如果有文本，也需要处理
+                                if (msg.text) {
+                                    const id = String(msg.message_id);
+                                    setChatStore(prev => {
+                                        const msgs = [...prev.messages];
+                                        const map = messageIndexMapRef.current;
+                                        if (map[id] !== undefined) {
+                                            // append content for streaming
+                                            msgs[map[id]].content += msg.text;
+                                        } else {
+                                            // add new assistant message
+                                            map[id] = msgs.length;
+                                            msgs.push({ content: msg.text, name: sender_name, type: 'assistant' });
+                                        }
+                                        return { messages: msgs };
+                                    });
+                                }
+                                return; // 已处理，不再继续
+                            }
                         }
                         
                         // 处理传统消息格式
@@ -113,6 +140,26 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                         if (msg.text) {
                             // EOF signal: refresh conversation list
                             if (msg.text === 'EOF') {
+                                // 发送 play_done
+                                let msgID = msg.MessageID ?? msg.messageID ?? msg.msgID ?? msg.message_id;
+                                console.log('传统格式收到EOF消息:', JSON.stringify(msg), '提取的msgID:', msgID);
+                                if (msgID !== undefined && msgID !== null) {
+                                    // 直接使用当前的websocket对象，而不是从roomState获取
+                                    if (websocket.readyState === WebSocket.OPEN) {
+                                        try {
+                                            const playDoneMsg = { type: 'play_done', content: String(msgID) };
+                                            console.log('传统格式发送play_done信号:', JSON.stringify(playDoneMsg));
+                                            websocket.send(JSON.stringify(playDoneMsg));
+                                            console.log('传统格式play_done信号已发送');
+                                        } catch (error) {
+                                            console.error('传统格式发送play_done信号失败:', error);
+                                        }
+                                    } else {
+                                        console.error('传统格式无法发送play_done信号，WebSocket未连接，状态:', websocket.readyState);
+                                    }
+                                } else {
+                                    console.error('传统格式无法发送play_done信号，msgID无效:', msgID);
+                                }
                                 window.dispatchEvent(new CustomEvent('refreshConversations'));
                                 // reset for next message stream
                                 messageIndexMapRef.current = {};
