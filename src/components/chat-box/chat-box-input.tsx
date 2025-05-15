@@ -130,6 +130,16 @@ export function ChatBoxInput() {
             <Button onClick={handleToggleRecording}
                     className={roomState.isRecording ? "bg-red-300 hover:bg-red-200" : "bg-green-300 hover:bg-green-200" + " transition"}
                     disabled={!roomState.isConnected}><PhoneIcon/></Button>
+            {/* 新增打断按钮 */}
+            <Button
+                disabled={!roomState.isConnected}
+                className="bg-yellow-300 hover:bg-yellow-200 transition"
+                onClick={() => {
+                    if (roomState.websocket && roomState.websocket.readyState === WebSocket.OPEN) {
+                        roomState.websocket.send(JSON.stringify({ type: 'interrupt' }));
+                    }
+                }}
+            >打断</Button>
             <div className={"grow"}/>
             <Button disabled={!roomState.isConnected} onClick={() => {
                 handleSend()
