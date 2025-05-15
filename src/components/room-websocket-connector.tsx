@@ -204,16 +204,16 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     // 顺序播放队列中的音频
     const processQueue = async () => {
         if (isPlayingRef.current || audioQueueRef.current.length === 0) return;
-        isPlayingRef.current = true;
-        const queueItem = audioQueueRef.current.shift()!;
+        const queueItem = audioQueueRef.current[0];
         if (queueItem.eof) {
-            // 播放队列处理到EOF，发送play_done
+            // 只有在没有音频正在播放时，才处理EOF并发送play_done
+            audioQueueRef.current.shift();
             const msgID = queueItem.msgID;
             const ws = websocketRef.current;
             if (ws && ws.readyState === WebSocket.OPEN && msgID) {
                 try {
                     const playDoneMsg = { type: 'play_done', content: String(msgID) };
-                    console.log('音频队列处理到EOF，发送play_done信号:', JSON.stringify(playDoneMsg));
+                    console.log('音频真正播放到EOF，发送play_done信号:', JSON.stringify(playDoneMsg));
                     ws.send(JSON.stringify(playDoneMsg));
                     console.log('play_done信号已发送');
                 } catch (error) {
@@ -225,17 +225,31 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
             window.dispatchEvent(new CustomEvent('refreshConversations'));
             // reset for next message stream
             messageIndexMapRef.current = {};
-            isPlayingRef.current = false;
-            processQueue();
+            // 继续处理下一个（如果还有）
+            if (audioQueueRef.current.length > 0) {
+                processQueue();
+            }
             return;
         }
+        
+        // 普通音频项，先标记为正在播放，然后才从队列中移除
+        isPlayingRef.current = true;
         try {
+            // 等待音频真正播放完成
             await props.live2dApi?.playAudio?.(queueItem.buffer!, queueItem.sender_name);
+            // 播放完成后再移除队列项
+            audioQueueRef.current.shift();
         } catch (e) {
             console.error('Audio play failed', e);
+            // 发生错误时也要移除队列项，防止阻塞
+            audioQueueRef.current.shift();
         }
         isPlayingRef.current = false;
-        processQueue();
+        
+        // 播放完成后，检查是否有EOF等待处理
+        if (audioQueueRef.current.length > 0) {
+            processQueue();
+        }
     };
 
     // 从后端 JSON 消消息中解码音频并入队

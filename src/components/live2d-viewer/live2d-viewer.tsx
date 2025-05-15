@@ -36,6 +36,7 @@ interface ModelState {
 interface AudioQueueItem {
     buffer: ArrayBuffer;
     sender_name: string;
+    onComplete?: () => void;
 }
 
 export function Live2dViewer({api, ...props}: Live2dViewerProps) {
@@ -158,7 +159,13 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
     }, [models]);
 
     const playAudioWithSync = async (arrayBuffer: ArrayBuffer, sender_name: string = 'default') => {
-        setAudioQueue(prevQueue => [...prevQueue, { buffer: arrayBuffer, sender_name }]);
+        return new Promise<void>((resolve) => {
+            setAudioQueue(prevQueue => [...prevQueue, { 
+                buffer: arrayBuffer, 
+                sender_name,
+                onComplete: resolve
+            }]);
+        });
     };
 
     useEffect(() => {
@@ -195,6 +202,11 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
                         resolve();
                     };
                 });
+
+                // 音频播放完成后调用回调
+                if (queueItem.onComplete) {
+                    queueItem.onComplete();
+                }
             } catch (error) {
                 console.error('Audio processing failed:', error);
             } finally {
