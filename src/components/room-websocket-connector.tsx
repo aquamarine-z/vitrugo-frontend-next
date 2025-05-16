@@ -72,6 +72,20 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                                 [msg.role_name]: msg.type === 'success' ? 'success' : 'failed'
                             }));
                         }
+                        // 新增：处理 user_audio_input 类型，作为用户消息加入聊天框
+                        if (msg.type === 'user_audio_input') {
+                            setChatStore(prev => {
+                                const msgs = [...prev.messages];
+                                msgs.push({
+                                    content: msg.content,
+                                    name: msg.RoleName || msg.role_name || '用户',
+                                    type: 'user',
+                                    avatar: undefined
+                                });
+                                return { messages: msgs };
+                            });
+                            return; // 已处理
+                        }
                         
                         // 处理 Go 结构体 TTSMessage
                         // type TTSMessage struct {
