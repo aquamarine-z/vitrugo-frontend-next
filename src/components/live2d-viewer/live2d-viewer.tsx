@@ -43,6 +43,9 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
     const audioContextRef = useRef<AudioContext | null>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const appRef = useRef<PIXI.Application | null>(null);
+    // 保存当前正在播放的音频源引用，方便中断时停止
+    const currentAudioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+    const currentAudioDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
     const [audioQueue, setAudioQueue] = useState<AudioQueueItem[]>([]);
     const [isPlaying, setIsPlaying] = useState(false);
     const [models, setModels] = useState<ModelState[]>([]);
@@ -170,11 +173,30 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
 
     useEffect(() => {
         const playNextAudio = async () => {
+            // 检查是否正在播放、是否有队列项、是否有模型
             if (isPlaying || audioQueue.length === 0 || !models.length) return;
+            
+            // 检查是否处于中断状态
+            if (api.interrupted) {
+                console.log('播放器处于中断状态，忽略队列');
+                setAudioQueue([]); // 中断状态下清空剩余队列
+                return;
+            }
+            
             setIsPlaying(true);
             const queueItem = audioQueue[0];
             setAudioQueue(prevQueue => prevQueue.slice(1));
             try {
+                // 再次检查是否被中断（双重保险）
+                if (api.interrupted) {
+                    console.log('检测到中断状态，跳过音频播放');
+                    if (queueItem.onComplete) {
+                        queueItem.onComplete();
+                    }
+                    setIsPlaying(false);
+                    return;
+                }
+                
                 const audioContext = audioContextRef.current!;
                 const audioBuffer = await audioContext.decodeAudioData(queueItem.buffer.slice(0));
                 const source = audioContext.createBufferSource();
@@ -182,6 +204,10 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
                 const destination = audioContext.createMediaStreamDestination();
                 source.connect(destination);
                 source.connect(audioContext.destination);
+                
+                // 保存当前音频源的引用
+                currentAudioSourceRef.current = source;
+                currentAudioDestinationRef.current = destination;
                 
                 // 根据sender_name查找对应的模型，如果找不到则使用第一个模型
                 const targetModelIndex = models.findIndex(m => 
@@ -196,9 +222,34 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
                 }
                 
                 source.start(audioContext.currentTime);
+                
+                // 创建一个可以被中断的播放Promise
                 await new Promise<void>((resolve) => {
+                    // 添加一个检查函数，在中断时也会触发完成
+                    const checkInterrupt = () => {
+                        if (api.interrupted || !currentAudioSourceRef.current) {
+                            console.log('检测到中断或音频源已清除，提前结束播放');
+                            if (targetMotionSync) targetMotionSync.reset();
+                            resolve();
+                            return true;
+                        }
+                        return false;
+                    };
+                    
+                    // 设置周期性检查中断状态
+                    const intervalId = setInterval(() => {
+                        if (checkInterrupt()) {
+                            clearInterval(intervalId);
+                        }
+                    }, 100);
+                    
+                    // 正常播放结束处理
                     source.onended = () => {
-                        targetMotionSync?.reset();
+                        clearInterval(intervalId);
+                        if (targetMotionSync) targetMotionSync.reset();
+                        // 清除当前音频源引用
+                        currentAudioSourceRef.current = null;
+                        currentAudioDestinationRef.current = null;
                         resolve();
                     };
                 });
@@ -214,12 +265,61 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
             }
         };
         playNextAudio();
-    }, [audioQueue, isPlaying, models]);
+    }, [audioQueue, isPlaying, models, api.interrupted]);
 
     // 处理中断
     useEffect(() => {
         if (api.interrupted && models.length) {
+            console.log('Live2D中断处理: 停止所有音频播放并重置模型');
+            
+            // 重置所有模型的动作同步
             models.forEach(m => m.motionSync?.reset());
+            
+            // 直接停止当前正在播放的音频源
+            if (currentAudioSourceRef.current) {
+                try {
+                    currentAudioSourceRef.current.stop();
+                    currentAudioSourceRef.current.disconnect();
+                    currentAudioSourceRef.current = null;
+                } catch (e) {
+                    console.error('停止当前音频源失败:', e);
+                }
+            }
+            
+            // 断开当前的音频目标节点
+            if (currentAudioDestinationRef.current) {
+                try {
+                    currentAudioDestinationRef.current.disconnect();
+                    currentAudioDestinationRef.current = null;
+                } catch (e) {
+                    console.error('断开音频目标节点失败:', e);
+                }
+            }
+            
+            // 如果上述方法不起作用，则尝试通过重新创建AudioContext来强制停止所有音频
+            if (audioContextRef.current) {
+                try {
+                    // 关闭当前的AudioContext
+                    audioContextRef.current.close().catch(e => console.error('关闭AudioContext失败:', e));
+                    
+                    // 重新创建AudioContext
+                    setTimeout(() => {
+                        try {
+                            // @ts-expect-error
+                            audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+                            console.log('已重新创建AudioContext');
+                        } catch (e) {
+                            console.error('重新创建AudioContext失败:', e);
+                        }
+                    }, 50);
+                } catch (e) {
+                    console.error('处理AudioContext失败:', e);
+                }
+            }
+            
+            // 重置播放状态和清空队列（双重保险）
+            setAudioQueue([]);
+            setIsPlaying(false);
         }
     }, [api.interrupted, models]);
 
