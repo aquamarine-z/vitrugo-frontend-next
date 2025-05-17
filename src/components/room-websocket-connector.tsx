@@ -46,7 +46,8 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
             if (roomState.websocket?.readyState === WebSocket.OPEN) {
                 return;
             }
-            const wsUrl = `ws://127.0.0.1:8081/ws`;
+            const wsPort = getBackendPort();
+            const wsUrl = `ws://127.0.0.1:${wsPort}/ws`;
             const websocket = new WebSocket(wsUrl);
             websocketRef.current = websocket;
             websocket.onopen = () => {
@@ -313,7 +314,7 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     };
 
     // 新增：设置弹窗tab与live2d相关状态
-    const [settingsTab, setSettingsTab] = useState<'main' | 'chat' | 'user'>('main');
+    const [settingsTab, setSettingsTab] = useState<'main' | 'chat' | 'user' | 'connection'>('main');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [live2dModels, setLive2dModels] = useState<any>(null);
     const [live2dLoading, setLive2dLoading] = useState(false);
@@ -357,7 +358,8 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
         setLive2dLoading(true);
         setLive2dError(null);
         try {
-            const res = await fetch('http://127.0.0.1:8081/setting', { credentials: 'include' });
+            const port = getBackendPort();
+            const res = await fetch(`http://127.0.0.1:${port}/setting`, { credentials: 'include' });
             if (!res.ok) throw new Error('网络错误');
             const data = await res.json();
             setLive2dModels(data.Models || {});
@@ -467,6 +469,28 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     const [showChangeUsernameInput, setShowChangeUsernameInput] = useState(false);
     const [newUsername, setNewUsername] = useState('');
 
+    // 新增：连接tab相关状态
+    const [connectionTabPort, setConnectionTabPort] = useState<string>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('backendPort') || '8081';
+        }
+        return '8081';
+    });
+    // 端口号变更时保存到localStorage
+    const handlePortChange = (val: string) => {
+        setConnectionTabPort(val);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('backendPort', val);
+        }
+    };
+    // 获取端口号的工具函数
+    const getBackendPort = () => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('backendPort') || '8081';
+        }
+        return '8081';
+    };
+
     // 侧边栏宽度
     const SIDEBAR_WIDTH = 320;
     const buttonTransform = props.sidebarOpen ? `translateX(${SIDEBAR_WIDTH}px)` : 'none';
@@ -509,6 +533,7 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                         <Button variant={settingsTab === 'main' ? 'default' : 'ghost'} onClick={() => setSettingsTab('main')}>常规</Button>
                         <Button variant={settingsTab === 'chat' ? 'default' : 'ghost'} onClick={() => setSettingsTab('chat')}>聊天管理</Button>
                         <Button variant={settingsTab === 'user' ? 'default' : 'ghost'} onClick={() => setSettingsTab('user')}>用户</Button>
+                        <Button variant={settingsTab === 'connection' ? 'default' : 'ghost'} onClick={() => setSettingsTab('connection')}>连接</Button>
                     </div>
                     {settingsTab === 'main' && (
                         <>
@@ -605,6 +630,24 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                             )}
                             {changeUsernameError && <div style={{color:'red',fontSize:13}}>{changeUsernameError}</div>}
                             <Button style={{marginTop:18}} variant="outline" onClick={() => { window.location.href = '/login.html'; }}>前往重新登录</Button>
+                        </div>
+                    )}
+                    {/* 连接tab内容 */}
+                    {settingsTab === 'connection' && (
+                        <div style={{ minHeight: 120, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                            <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>后端服务端口</div>
+                            <div style={{display:'flex',alignItems:'center',gap:10}}>
+                                <span>端口号：</span>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={65535}
+                                    value={connectionTabPort}
+                                    onChange={e => handlePortChange(e.target.value)}
+                                    style={{padding:'6px 10px',border:'1px solid #ccc',borderRadius:6,minWidth:80}}
+                                />
+                                <span style={{color:'#888',fontSize:13}}>（修改后需重新连接）</span>
+                            </div>
                         </div>
                     )}
                 </div>
