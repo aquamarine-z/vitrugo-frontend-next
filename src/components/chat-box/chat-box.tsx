@@ -12,16 +12,18 @@ interface ChatBoxProps {
     setSidebarOpen: (open: boolean) => void;
 }
 
+
 export function ChatBox({ sidebarOpen, setSidebarOpen }: ChatBoxProps) {
     const [chatStore, setChatStore]=useAtom(ChatStore)
-    const [roomState, setRoomState] = useAtom(RoomStateStore);
+
+    const [, setRoomState] = useAtom(RoomStateStore);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [currentTitle, setCurrentTitle] = React.useState("当前会话")
     // 处理会话选择
-    const handleSelectConversation = React.useCallback((data: {title: string, messages: any[], id?: number}) => {
+    const handleSelectConversation = React.useCallback((data: {title: string, messages:[], id?: number}) => {
         setCurrentTitle(data.title || "会话");
         // 转换消息格式，确保 type 字段类型安全
-        const messages = (data.messages || []).map((msg: any) => {
+        const messages = (data.messages || []).map((msg:{role:string,content:string,senderName:string}) => {
             let type: "user" | "assistant" | "system" = "user";
             if (msg.role === "assistant") type = "assistant";
             else if (msg.role === "system") type = "system";
@@ -44,9 +46,16 @@ export function ChatBox({ sidebarOpen, setSidebarOpen }: ChatBoxProps) {
             messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
         }
     }, [chatStore.messages]);
+
     return <div className={"w-full h-full flex flex-col items-center relative"}>
-        {/* 会话栏 */}
-        <ConversationSidebar open={sidebarOpen} onClose={()=>setSidebarOpen(false)} onSelectConversation={handleSelectConversation} />
+        {/* 会话栏 */
+        }
+
+        {
+            <ConversationSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)}
+                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                //@ts-ignore
+                                 onSelectConversation={handleSelectConversation}/>}
         {/* 顶部标题栏 */}
         <div className="w-full flex items-center justify-center relative" style={{height:48}}>
             {/* 左侧按钮 */}

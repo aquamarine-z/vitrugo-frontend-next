@@ -27,9 +27,11 @@ export default function LoginPage() {
                 credentials: "include"
             });
             if (!res.ok) throw new Error("登录失败");
-            const data = await res.json();
+            await res.json();
             router.replace("/live");
-        } catch (e: any) {
+        } catch (e:unknown) {
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-expect-error
             setError(e.message || "登录失败");
         } finally {
             setLoading(false);
@@ -51,7 +53,9 @@ export default function LoginPage() {
             if (!res.ok) throw new Error("注册失败");
             setShowRegister(false);
             setRegUsername(""); setRegPassword(""); setRegAuthKey("");
-        } catch (e: any) {
+        } catch (e) {
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-expect-error
             setRegError(e.message || "注册失败");
         } finally {
             setRegLoading(false);

@@ -17,8 +17,8 @@ export default function LivePage() {
     const [scriptCoreLoaded, setScriptCoreLoaded] = useState(false)
     const [scriptLive2dLoaded, setScriptLive2dLoaded] = useState(false)
     const [live2dApi, setLive2dApi] = useState({} as Live2dViewerApi)
-    const router = useRouter();
-    // 分别管理会话栏和设置弹窗开关
+    useRouter();
+// 分别管理会话栏和设置弹窗开关
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     useEffect(() => {
