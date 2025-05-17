@@ -370,6 +370,42 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
         }
     }, [settingsTab]);
 
+    // 添加对全局中断事件的监听
+    useEffect(() => {
+        // 处理来自停止按钮的中断事件
+        const handleInterruptAudio = () => {
+            console.log('收到全局中断信号，停止所有语音播放');
+            // 清空音频队列
+            audioQueueRef.current = [];
+            // 重置正在播放标志
+            isPlayingRef.current = false;
+            
+            // 通知 Live2D 组件中断当前播放
+            if (props.live2dApi) {
+                // 设置中断标志以触发live2d-viewer中的中断处理逻辑
+                props.live2dApi.interrupted = true;
+                
+                // 强制刷新一下，确保变更被观察到
+                props.live2dApi.setApi?.(api => ({...api, interrupted: true}));
+                
+                // 复位中断标志（等待效果触发后）
+                setTimeout(() => {
+                    if (props.live2dApi) {
+                        props.live2dApi.interrupted = false;
+                        // 强制刷新一下
+                        props.live2dApi.setApi?.(api => ({...api, interrupted: false}));
+                    }
+                }, 300); // 延长超时时间，确保有足够时间处理中断
+            }
+        };
+
+        window.addEventListener('interrupt_audio', handleInterruptAudio);
+        
+        return () => {
+            window.removeEventListener('interrupt_audio', handleInterruptAudio);
+        };
+    }, [props.live2dApi]);
+
     // 启用/关闭模型
     const toggleLive2d = (role: string) => {
         setLive2dEnabled(prev => {

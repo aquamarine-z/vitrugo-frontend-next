@@ -1,5 +1,5 @@
 import {Button} from "@/components/ui/button";
-import {PhoneIcon, SendHorizonalIcon} from "lucide-react";
+import {PhoneIcon, SendHorizonalIcon, SquareIcon} from "lucide-react";
 import {Textarea} from "@/components/ui/textarea";
 import {useEffect, useRef, useState} from "react";
 import {useAtom} from "jotai";
@@ -147,6 +147,21 @@ export function ChatBoxInput() {
             }
         }
     };
+    
+    // 处理停止按钮点击事件
+    const handleStop = () => {
+        if (roomState.websocket && roomState.websocket.readyState === WebSocket.OPEN) {
+            // 1. 发送interrupt消息到后端
+            roomState.websocket.send(JSON.stringify({ type: 'interrupt' }));
+            
+            // 2. 执行与收到interrupt消息相同的操作
+            console.log('执行停止操作，停止所有语音播放');
+            
+            // 如果需要访问audioQueueRef和isPlayingRef，可以通过RoomWebsocketConnector组件中的方法
+            // 或者通过全局事件来通知RoomWebsocketConnector执行停止操作
+            window.dispatchEvent(new CustomEvent('interrupt_audio'));
+        }
+    };
     return <div className={"w-full h-full flex flex-col gap-2"}>
         <div className={"w-full flex flex-row px-2 items-center justify-end gap-2"}>
             <Button onClick={handleToggleRecording}
@@ -162,6 +177,12 @@ export function ChatBoxInput() {
                     }
                 }}
             >打断</Button>
+            {/* 新增停止按钮 */}
+            <Button
+                disabled={!roomState.isConnected}
+                className="bg-red-500 hover:bg-red-400 transition"
+                onClick={handleStop}
+            ><SquareIcon size={18} /> 停止</Button>
             <div className={"grow"}/>
             <Button disabled={!roomState.isConnected} onClick={() => {
                 handleSend()
