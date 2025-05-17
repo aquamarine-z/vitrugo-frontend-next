@@ -313,7 +313,7 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     };
 
     // 新增：设置弹窗tab与live2d相关状态
-    const [settingsTab, setSettingsTab] = useState<'main' | 'chat'>('main');
+    const [settingsTab, setSettingsTab] = useState<'main' | 'chat' | 'user'>('main');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [live2dModels, setLive2dModels] = useState<any>(null);
     const [live2dLoading, setLive2dLoading] = useState(false);
@@ -455,6 +455,18 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
         };
     }, []);
 
+    // 新增：用户tab相关状态
+    const [userTabUsername, setUserTabUsername] = useState<string>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('userName') || '未登录';
+        }
+        return '未登录';
+    });
+    const [changeUsernameLoading, setChangeUsernameLoading] = useState(false);
+    const [changeUsernameError, setChangeUsernameError] = useState<string|null>(null);
+    const [showChangeUsernameInput, setShowChangeUsernameInput] = useState(false);
+    const [newUsername, setNewUsername] = useState('');
+
     // 侧边栏宽度
     const SIDEBAR_WIDTH = 320;
     const buttonTransform = props.sidebarOpen ? `translateX(${SIDEBAR_WIDTH}px)` : 'none';
@@ -496,6 +508,7 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                     <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
                         <Button variant={settingsTab === 'main' ? 'default' : 'ghost'} onClick={() => setSettingsTab('main')}>常规</Button>
                         <Button variant={settingsTab === 'chat' ? 'default' : 'ghost'} onClick={() => setSettingsTab('chat')}>聊天管理</Button>
+                        <Button variant={settingsTab === 'user' ? 'default' : 'ghost'} onClick={() => setSettingsTab('user')}>用户</Button>
                     </div>
                     {settingsTab === 'main' && (
                         <>
@@ -543,6 +556,55 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                                     </Button>
                                 </div>
                             ))}
+                        </div>
+                    )}
+                    {/* 用户tab内容 */}
+                    {settingsTab === 'user' && (
+                        <div style={{ minHeight: 180, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                            <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>用户信息</div>
+                            <div style={{ fontSize: 16, marginBottom: 8 }}>用户名：<span style={{fontWeight: 500}}>{userTabUsername}</span></div>
+                            {showChangeUsernameInput ? (
+                                <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                                    <input
+                                        type="text"
+                                        value={newUsername}
+                                        onChange={e => setNewUsername(e.target.value)}
+                                        placeholder="输入新用户名"
+                                        style={{padding:'6px 10px',border:'1px solid #ccc',borderRadius:6,minWidth:120}}
+                                        disabled={changeUsernameLoading}
+                                    />
+                                    <Button
+                                        onClick={async () => {
+                                            if (!newUsername.trim()) return;
+                                            setChangeUsernameLoading(true);
+                                            setChangeUsernameError(null);
+                                            try {
+                                                const res = await fetch('http://127.0.0.1:8081/changeusername', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    credentials: 'include',
+                                                    body: JSON.stringify({ new_username: newUsername.trim() })
+                                                });
+                                                if (!res.ok) throw new Error('更改失败');
+                                                setUserTabUsername(newUsername.trim());
+                                                localStorage.setItem('userName', newUsername.trim());
+                                                setShowChangeUsernameInput(false);
+                                                setNewUsername('');
+                                            } catch (e:any) {
+                                                setChangeUsernameError(e.message || '更改失败');
+                                            } finally {
+                                                setChangeUsernameLoading(false);
+                                            }
+                                        }}
+                                        disabled={changeUsernameLoading}
+                                    >确定</Button>
+                                    <Button variant="ghost" onClick={() => { setShowChangeUsernameInput(false); setNewUsername(''); }} disabled={changeUsernameLoading}>取消</Button>
+                                </div>
+                            ) : (
+                                <Button onClick={() => { setShowChangeUsernameInput(true); setNewUsername(''); }}>更改用户名</Button>
+                            )}
+                            {changeUsernameError && <div style={{color:'red',fontSize:13}}>{changeUsernameError}</div>}
+                            <Button style={{marginTop:18}} variant="outline" onClick={() => { window.location.href = '/login.html'; }}>前往重新登录</Button>
                         </div>
                     )}
                 </div>
