@@ -2,7 +2,7 @@ import {Live2dViewerApi} from "@/components/live2d-viewer/live2d-viewer";
 import React, { useEffect, useRef, useState } from "react";
 import {useAtom} from "jotai";
 import {RoomStateStore} from "@/store/room-state-store";
-import {ChatMessage, ChatStore} from "@/store/chat-message-store";
+import {ChatStore} from "@/store/chat-message-store";
 import { Button } from "@/components/ui/button";
 
 interface RoomWebsocketConnectorProps {
@@ -13,10 +13,11 @@ interface RoomWebsocketConnectorProps {
     setSettingsOpen: (open: boolean) => void;
 }
 
+
 export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     const [roomState, setRoomState] = useAtom(RoomStateStore)
     const subtitleTimeoutRef = useRef(null)
-    const currentSubtitleRef = useRef("")
+    useRef("");
     const reconnectTimeoutRef = useRef<number>(null)
     const [, setChatStore] = useAtom(ChatStore)
     // websocketRef始终指向最新的WebSocket对象
@@ -126,7 +127,7 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                             // 处理EOF消息情况 (audio为null，text为EOF)
                             if (msg.text === 'EOF') {
                                 // 不再直接发送play_done，而是将EOF标记入队
-                                let msgID = String(msg.message_id);
+                                const msgID = String(msg.message_id);
                                 console.log('收到EOF消息:', JSON.stringify(msg));
                                 enqueueAudio({eof: true, msgID}, '');
                                 return; // 已处理，不再继续
@@ -171,7 +172,7 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                             // EOF signal: refresh conversation list
                             if (msg.text === 'EOF') {
                                 // 传统格式同样入队EOF标记
-                                let msgID = msg.MessageID ?? msg.messageID ?? msg.msgID ?? msg.message_id;
+                                const msgID = msg.MessageID ?? msg.messageID ?? msg.msgID ?? msg.message_id;
                                 console.log('传统格式收到EOF消息:', JSON.stringify(msg), '提取的msgID:', msgID);
                                 if (msgID !== undefined && msgID !== null) {
                                     enqueueAudio({eof: true, msgID: String(msgID)}, '');
@@ -234,7 +235,9 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     };
 
     // 组件级变量
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     let reconnectAttempts = 0;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const maxReconnectAttempts = 5;
 
     // 简易音频队列及播放指针
@@ -311,8 +314,10 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
 
     // 新增：设置弹窗tab与live2d相关状态
     const [settingsTab, setSettingsTab] = useState<'main' | 'chat'>('main');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [live2dModels, setLive2dModels] = useState<any>(null);
     const [live2dLoading, setLive2dLoading] = useState(false);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [live2dError, setLive2dError] = useState<string | null>(null);
     const [live2dEnabled, setLive2dEnabled] = useState<{[k:string]: boolean}>(() => {
         if (typeof window !== 'undefined') {
@@ -356,7 +361,9 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
             if (!res.ok) throw new Error('网络错误');
             const data = await res.json();
             setLive2dModels(data.Models || {});
-        } catch (e: any) {
+        } catch (e) {
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-expect-error
             setLive2dError(e.message || '获取失败');
         } finally {
             setLive2dLoading(false);

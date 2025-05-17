@@ -10,7 +10,7 @@ interface Conversation {
 interface ConversationSidebarProps {
     open: boolean;
     onClose: () => void;
-    onSelectConversation?: (data: {title: string, messages: any[], id: number}) => void;
+    onSelectConversation?: (data: {title: string, messages: [], id: number}) => void;
 }
 
 export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, onClose, onSelectConversation }) => {
@@ -48,7 +48,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
                     setConversations([]);
                 }
             })
-            .catch(err => {
+            .catch(() => {
                 setError('获取会话失败');
                 setConversations([]);
             })
@@ -68,8 +68,8 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
                 return;
             }
             setConversations(conversations.filter(c => c.id !== id));
-        } catch (e) {
-            alert('删除失败');
+        } catch (exc) {
+            alert('删除失败'+exc);
         }
         setMenuOpenId(null);
     };
@@ -89,7 +89,8 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
             }
             setConversations(conversations.map(c => c.id === id ? {...c, title: renameValue.trim()} : c));
             setRenameId(null);
-        } catch (e) {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (_e) {
             alert('重命名失败');
         }
         setMenuOpenId(null);
@@ -109,8 +110,8 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
                 return;
             }
             // 创建成功后刷新会话列表
-            const data = await res.json();
-            // 重新拉取会话
+            await res.json();
+// 重新拉取会话
             fetch(`http://127.0.0.1:8081/conversation`, { credentials: 'include' })
                 .then(res => res.json())
                 .then(data => {
@@ -120,6 +121,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
                         setConversations([]);
                     }
                 });
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (e) {
             alert('新建会话失败');
         } finally {
@@ -178,6 +180,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
                                     if (onSelectConversation && data) {
                                         onSelectConversation({title: data.title, messages: data.messages, id: data.id});
                                     }
+                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                 } catch (e) {
                                     alert('获取会话历史失败');
                                 }

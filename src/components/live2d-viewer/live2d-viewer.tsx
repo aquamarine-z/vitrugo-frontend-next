@@ -1,3 +1,5 @@
+
+
 'use client'
 import {SetStateAction, useEffect, useRef, useState} from "react";
 import * as PIXI from "pixi.js";
@@ -39,7 +41,8 @@ interface AudioQueueItem {
     onComplete?: () => void;
 }
 
-export function Live2dViewer({api, ...props}: Live2dViewerProps) {
+
+export function Live2dViewer({api, }: Live2dViewerProps) {
     const audioContextRef = useRef<AudioContext | null>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const appRef = useRef<PIXI.Application | null>(null);
@@ -50,7 +53,7 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [models, setModels] = useState<ModelState[]>([]);
     const [modelInfos, setModelInfos] = useState<ModelInfo[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [canvasReady, setCanvasReady] = useState(false);
 
@@ -75,7 +78,7 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
     // 以900x700为基准，动态计算缩放比例，canvas铺满屏幕
     const baseWidth = 900;
     const baseHeight = 700;
-    const [viewerSize, setViewerSize] = useState({ width: 1920, height: 900 });
+    const [viewerSize] = useState({ width: 1920, height: 900 });
     const viewerWidth = viewerSize.width;
     const viewerHeight = viewerSize.height;
     const scaleRatio = Math.min(viewerWidth / baseWidth, viewerHeight / baseHeight);
@@ -93,9 +96,11 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
     useEffect(() => {
         if (!canvasReady || !canvasRef.current || !modelInfos.length) return;
         if (appRef.current) return; // 防止重复初始化
-        // @ts-expect-error
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        //@ts-expect-error
         if (!window.PIXI) window.PIXI = PIXI;
-        // @ts-expect-error
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        //@ts-expect-error
         audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
         const app = new PIXI.Application({
             view: canvasRef.current,
@@ -125,14 +130,14 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
                 let dragging = false;
                 let offsetX = 0;
                 let offsetY = 0;
-                model.on('pointerdown', (event: any) => {
+                model.on('pointerdown', (event) => {
                     dragging = true;
                     offsetX = event.data.global.x - model.x;
                     offsetY = event.data.global.y - model.y;
                 });
                 model.on('pointerup', () => { dragging = false; });
                 model.on('pointerupoutside', () => { dragging = false; });
-                model.on('pointermove', (event: any) => {
+                model.on('pointermove', (event) => {
                     if (dragging) {
                         model.x = event.data.global.x - offsetX;
                         model.y = event.data.global.y - offsetY;
@@ -305,6 +310,7 @@ export function Live2dViewer({api, ...props}: Live2dViewerProps) {
                     // 重新创建AudioContext
                     setTimeout(() => {
                         try {
+                            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                             // @ts-expect-error
                             audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
                             console.log('已重新创建AudioContext');
