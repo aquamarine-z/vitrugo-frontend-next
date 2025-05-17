@@ -15,12 +15,21 @@ export default function LoginPage() {
     const [regLoading, setRegLoading] = useState(false);
     const router = useRouter();
 
+    // 获取后端端口号
+    const getBackendPort = () => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('backendPort') || '8081';
+        }
+        return '8081';
+    };
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError("");
         try {
-            const res = await fetch("http://127.0.0.1:8081/login", {
+            const port = getBackendPort();
+            const res = await fetch(`http://127.0.0.1:${port}/login`, {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({username, password}),
@@ -43,8 +52,9 @@ export default function LoginPage() {
         setRegLoading(true);
         setRegError("");
         try {
+            const port = getBackendPort();
             const passwordToSend = regPassword === "" ? "114514" : regPassword;
-            const res = await fetch("http://127.0.0.1:8081/register", {
+            const res = await fetch(`http://127.0.0.1:${port}/register`, {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify({ username: regUsername, password: passwordToSend, auth_key: regAuthKey }),

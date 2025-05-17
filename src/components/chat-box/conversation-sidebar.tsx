@@ -26,11 +26,20 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
     // 新增：新建会话loading
     const [creating, setCreating] = useState(false);
 
+    // 获取后端端口号
+    const getBackendPort = () => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('backendPort') || '8081';
+        }
+        return '8081';
+    };
+
     useEffect(() => {
         if (!open) return;
         setLoading(true);
         setError(null);
-        fetch(`http://127.0.0.1:8081/conversation`, {
+        const port = getBackendPort();
+        fetch(`http://127.0.0.1:${port}/conversation`, {
             credentials: 'include'
         })
             .then(res => {
@@ -59,7 +68,8 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
     const handleDelete = async (id: number) => {
         if (!window.confirm('确定要删除该会话吗？')) return;
         try {
-            const res = await fetch(`http://127.0.0.1:8081/conversation/${id}`, {
+            const port = getBackendPort();
+            const res = await fetch(`http://127.0.0.1:${port}/conversation/${id}`, {
                 method: 'DELETE',
                 credentials: 'include'
             });
@@ -77,7 +87,8 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
     const handleRename = async (id: number) => {
         if (!renameValue.trim()) return;
         try {
-            const res = await fetch(`http://127.0.0.1:8081/conversation/${id}`, {
+            const port = getBackendPort();
+            const res = await fetch(`http://127.0.0.1:${port}/conversation/${id}`, {
                 method: 'PUT',
                 headers: {'Content-Type': 'application/json'},
                 credentials: 'include',
@@ -89,7 +100,6 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
             }
             setConversations(conversations.map(c => c.id === id ? {...c, title: renameValue.trim()} : c));
             setRenameId(null);
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (_e) {
             alert('重命名失败');
         }
@@ -99,7 +109,8 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
     const handleCreateConversation = async () => {
         setCreating(true);
         try {
-            const res = await fetch('http://127.0.0.1:8081/conversation', {
+            const port = getBackendPort();
+            const res = await fetch(`http://127.0.0.1:${port}/conversation`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
@@ -109,10 +120,9 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
                 window.location.href = '/login';
                 return;
             }
-            // 创建成功后刷新会话列表
             await res.json();
-// 重新拉取会话
-            fetch(`http://127.0.0.1:8081/conversation`, { credentials: 'include' })
+            // 重新拉取会话
+            fetch(`http://127.0.0.1:${port}/conversation`, { credentials: 'include' })
                 .then(res => res.json())
                 .then(data => {
                     if (Array.isArray(data.conversations)) {
@@ -121,7 +131,6 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
                         setConversations([]);
                     }
                 });
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (e) {
             alert('新建会话失败');
         } finally {
@@ -169,7 +178,8 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
                                 // 如果点击了菜单按钮，不触发会话选择
                                 if ((e.target as HTMLElement).closest('.conv-menu-btn')) return;
                                 try {
-                                    const res = await fetch(`http://127.0.0.1:8081/conversation/${conv.id}`, {
+                                    const port = getBackendPort();
+                                    const res = await fetch(`http://127.0.0.1:${port}/conversation/${conv.id}`, {
                                         credentials: 'include'
                                     });
                                     if (res.status === 401) {
