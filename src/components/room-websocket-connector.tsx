@@ -668,8 +668,8 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
                                                 localStorage.setItem('userName', newUsername.trim());
                                                 setShowChangeUsernameInput(false);
                                                 setNewUsername('');
-                                            } catch (e:any) {
-                                                setChangeUsernameError(e.message || '更改失败');
+                                            } catch (e: Error | unknown) {
+                                                setChangeUsernameError(e instanceof Error ? e.message : '更改失败');
                                             } finally {
                                                 setChangeUsernameLoading(false);
                                             }

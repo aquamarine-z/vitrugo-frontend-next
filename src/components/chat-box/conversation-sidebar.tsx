@@ -100,7 +100,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
             }
             setConversations(conversations.map(c => c.id === id ? {...c, title: renameValue.trim()} : c));
             setRenameId(null);
-        } catch (_e) {
+        } catch {
             alert('重命名失败');
         }
         setMenuOpenId(null);
@@ -140,7 +140,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
                         setConversations([]);
                     }
                 });
-        } catch (e) {
+        } catch  {
             alert('新建会话失败');
         } finally {
             setCreating(false);
@@ -199,8 +199,8 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
                                     if (onSelectConversation && data) {
                                         onSelectConversation({title: data.title, messages: data.messages, id: data.id});
                                     }
-                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                } catch (e) {
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                } catch  {
                                     alert('获取会话历史失败');
                                 }
                             }}
