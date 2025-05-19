@@ -496,6 +496,59 @@ export function RoomWebsocketConnector(props: RoomWebsocketConnectorProps) {
     const buttonTransform = props.sidebarOpen ? `translateX(${SIDEBAR_WIDTH}px)` : 'none';
     const buttonTransition = 'transform 0.3s cubic-bezier(.4,0,.2,1)';
 
+    useEffect(() => {
+        // 组件加载时尝试更新用户名显示
+        const fetchUsername = async () => {
+            try {
+                if (roomState.isConnected) {
+                    const port = getBackendPort();
+                    const userRes = await fetch(`http://127.0.0.1:${port}/user`, {
+                        credentials: "include"
+                    });
+                    if (userRes.ok) {
+                        const userData = await userRes.json();
+                        if (userData.username) {
+                            localStorage.setItem('userName', userData.username);
+                            setUserTabUsername(userData.username);
+                            console.log("用户名已更新:", userData.username);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error("获取用户信息失败:", error);
+            }
+        };
+        
+        fetchUsername();
+    }, [roomState.isConnected]); // 当连接状态变化时获取用户名
+
+    // 当WebSocket连接建立时也获取用户名
+    useEffect(() => {
+        if (websocketRef.current && websocketRef.current.readyState === WebSocket.OPEN) {
+            const fetchUsername = async () => {
+                // 同样实现获取用户名的逻辑，与上面的fetchUsername相同
+                try {
+                    const port = getBackendPort();
+                    const userRes = await fetch(`http://127.0.0.1:${port}/user`, {
+                        credentials: "include"
+                    });
+                    if (userRes.ok) {
+                        const userData = await userRes.json();
+                        if (userData.username) {
+                            localStorage.setItem('userName', userData.username);
+                            setUserTabUsername(userData.username);
+                            console.log("WebSocket连接后用户名已更新:", userData.username);
+                        }
+                    }
+                } catch (error) {
+                    console.error("获取用户信息失败:", error);
+                }
+            };
+            
+            fetchUsername();
+        }
+    }, [websocketRef.current]);
+
     return <>
         {/* 齿轮按钮 */}
         <Button variant="ghost" size="icon" style={{ position: 'fixed', top: 16, left: 16, zIndex: 1000, transform: buttonTransform, transition: buttonTransition }} onClick={() => props.setSettingsOpen(true)}>

@@ -37,6 +37,24 @@ export default function LoginPage() {
             });
             if (!res.ok) throw new Error("登录失败");
             await res.json();
+            
+            // 登录成功后获取用户信息
+            try {
+                const userRes = await fetch(`http://127.0.0.1:${port}/user`, {
+                    credentials: "include"
+                });
+                if (userRes.ok) {
+                    const userData = await userRes.json();
+                    if (userData.username) {
+                        // 存储用户名到localStorage
+                        localStorage.setItem('userName', userData.username);
+                        console.log("用户名已保存:", userData.username);
+                    }
+                }
+            } catch (userError) {
+                console.error("获取用户信息失败:", userError);
+            }
+            
             router.replace("/live");
         } catch (e:unknown) {
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment

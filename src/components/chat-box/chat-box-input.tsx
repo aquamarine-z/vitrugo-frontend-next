@@ -43,9 +43,15 @@ export function ChatBoxInput() {
                 session_id: roomState.sessionId // 新增字段
             };
             setChatStore(prev => {
+                // 获取用户名，优先使用localStorage中存储的值
+                const userName = localStorage.getItem('userName') || '用户';
                 return {
                     ...prev,
-                    messages: [...prev.messages, {content: inputMessage, type: "user"} as ChatMessage]
+                    messages: [...prev.messages, {
+                        content: inputMessage, 
+                        type: "user",
+                        name: userName
+                    } as ChatMessage]
                 }
             })
 
