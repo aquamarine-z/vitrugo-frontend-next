@@ -51,8 +51,8 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
             })
             .then(data => {
                 if (Array.isArray(data.conversations)) {
-                    // 按 created_at 升序
-                    setConversations((data.conversations as Conversation[]).sort((a: Conversation, b: Conversation) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
+                    // 按 updated_at 降序排序，这样最新的会话在前面
+                    setConversations((data.conversations as Conversation[]).sort((a: Conversation, b: Conversation) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()));
                 } else {
                     setConversations([]);
                 }
@@ -120,13 +120,22 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
                 window.location.href = '/login';
                 return;
             }
-            await res.json();
+            const newConvData = await res.json();
+            
+            // 如果有onSelectConversation回调，自动选择新创建的会话
+            if (onSelectConversation && newConvData && newConvData.id) {
+                onSelectConversation({
+                    title: newConvData.title || "新会话",
+                    messages: [],
+                    id: newConvData.id
+                });
+            }
             // 重新拉取会话
             fetch(`http://127.0.0.1:${port}/conversation`, { credentials: 'include' })
                 .then(res => res.json())
                 .then(data => {
                     if (Array.isArray(data.conversations)) {
-                        setConversations((data.conversations as Conversation[]).sort((a: Conversation, b: Conversation) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
+                        setConversations((data.conversations as Conversation[]).sort((a: Conversation, b: Conversation) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()));
                     } else {
                         setConversations([]);
                     }
@@ -206,7 +215,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ open, 
                                 ) : (
                                     <>
                                         <div style={{fontWeight: 500, fontSize:15, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{conv.title}</div>
-                                        <div style={{fontSize: 12, color: '#888'}}>{new Date(conv.created_at).toLocaleString()}</div>
+                                        <div style={{fontSize: 12, color: '#888'}}>{new Date(conv.updated_at).toLocaleString()}</div>
                                     </>
                                 )}
                             </div>

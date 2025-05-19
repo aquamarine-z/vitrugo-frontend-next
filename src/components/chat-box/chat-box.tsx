@@ -19,6 +19,7 @@ export function ChatBox({ sidebarOpen, setSidebarOpen }: ChatBoxProps) {
     const [, setRoomState] = useAtom(RoomStateStore);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [currentTitle, setCurrentTitle] = React.useState("当前会话")
+    const [initialLoadDone, setInitialLoadDone] = React.useState(false)
     // 处理会话选择
     const handleSelectConversation = React.useCallback((data: {title: string, messages:[], id?: number}) => {
         setCurrentTitle(data.title || "会话");
@@ -40,6 +41,63 @@ export function ChatBox({ sidebarOpen, setSidebarOpen }: ChatBoxProps) {
         // 设置当前 sessionId，兼容 id 可能为 undefined
         setRoomState(prev => ({ ...prev, sessionId: data.id }));
     }, [setChatStore, setSidebarOpen, setRoomState]);
+
+    // 获取后端端口号
+    const getBackendPort = React.useCallback(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('backendPort') || '8081';
+        }
+        return '8081';
+    }, []);
+
+    // 自动加载最新的会话
+    useEffect(() => {
+        if (initialLoadDone) return;
+        
+        const loadLatestConversation = async () => {
+            try {
+                const port = getBackendPort();
+                // 获取所有会话
+                const conversationsRes = await fetch(`http://127.0.0.1:${port}/conversation`, {
+                    credentials: 'include'
+                });
+                
+                if (conversationsRes.status === 401) {
+                    // 未登录，不进行处理
+                    return;
+                }
+                
+                const data = await conversationsRes.json();
+                if (Array.isArray(data.conversations) && data.conversations.length > 0) {
+                    // 按更新时间降序排序，获取最新的会话
+                    const latestConversation = [...data.conversations].sort(
+                        (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+                    )[0];
+                    
+                    // 获取该会话的详细内容
+                    const conversationDetailRes = await fetch(`http://127.0.0.1:${port}/conversation/${latestConversation.id}`, {
+                        credentials: 'include'
+                    });
+                    
+                    if (conversationDetailRes.ok) {
+                        const detailData = await conversationDetailRes.json();
+                        handleSelectConversation({
+                            title: detailData.title,
+                            messages: detailData.messages,
+                            id: detailData.id
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('自动加载最新会话失败:', error);
+            } finally {
+                setInitialLoadDone(true);
+            }
+        };
+        
+        loadLatestConversation();
+    }, [getBackendPort, handleSelectConversation, initialLoadDone]);
+    
     // 当消息更新时，滚动到底部
     useEffect(() => {
         if (messagesEndRef.current) {
